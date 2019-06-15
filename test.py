@@ -6,7 +6,7 @@ from pprint import pprint
 accountID, token = exampleAuth()
 api = API(access_token=token)
 
-# 5分間隔で5000データ
+# H2間隔で10データ
 params = {
     "count": 10,
     "granularity": "H2"
@@ -15,7 +15,7 @@ params = {
 r = instruments.InstrumentsCandles(instrument="USD_JPY", params=params)
 api.request(r)
 
-pprint(api.request(r))
+pprint(api.request(r)["candles"][1]["mid"]["c"])
 
 #data = []
 #for raw in r.response['candles']:

@@ -7,4 +7,4 @@ client = oandapyV20.API(access_token=token)
 r = accounts.AccountSummary(accountID)
 r = client.request(r)
 balance = r['account']['balance']
-print('現在の口座残高は{}円です。'.format(balance))
+print('現在の口座残高は{}円です。'.format(round(float(balance))))

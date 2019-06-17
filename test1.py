@@ -3,17 +3,25 @@ from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import time
 
+# APIで１分足を100件取得
+instrument = "GBP_JPY"
+params = {
+    "count": 100,
+    "granularity": "M1"
+    }
+
+accountID, token = exampleAuth()
+client = API(access_token=token)
+r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+response = client.request(r)
+last_data = response["candles"][-2]
+last_time = last_data["time"]
+time.sleep(10)
+
 while True:
 
     accountID, token = exampleAuth()
     client = API(access_token=token)
-
-    # APIで１分足を100件取得
-    instrument = "GBP_JPY"
-    params = {
-        "count": 100,
-        "granularity": "M1"
-    }
     r = instruments.InstrumentsCandles(instrument=instrument, params=params)
     response = client.request(r)
 
@@ -25,8 +33,9 @@ while True:
     open_price = data["mid"]["o"]
     close_price = data["mid"]["c"]
 
-    print("時間： " + close_time
-          + " 始値： " + str(open_price)
-          + " 終値： " + str(close_price))
-
+    if close_time != last_time:
+        print("時間： " + close_time
+              + " 始値： " + str(open_price)
+              + " 終値： " + str(close_price))
+        last_time = close_time
     time.sleep(10)

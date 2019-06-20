@@ -1,0 +1,93 @@
+from oandapyV20 import API
+import oandapyV20.endpoints.instruments as instruments
+import pandas as pd
+from datetime import datetime
+from auth import exampleAuth
+
+
+# start～endまでのデータ取得
+def get_period_data(start, end, minute, instrument='USD_JPY'):
+    timestamp = start.timestamp()
+    concats = []
+    count = 5000
+    while True:
+        df, last_timestamp = send_api(count, timestamp, minute, instrument)
+        concats.append(df)
+        if last_timestamp > end.timestamp() or len(df) < count:
+            break
+        timestamp = last_timestamp + (60 * minute)
+    df = pd.concat(concats)
+    if end is None:
+        return df
+    else:
+        return df[df.index < end]
+
+
+# 時間足のdfを取得
+def send_api(count, start, minute, instrument):
+    # oandaへのリクエストの送信
+    api = API(access_token=token, environment="practice", headers={"Accept-Datetime-Format": "Unix"})
+    if minute == 1:
+        granularity = 'M1'
+    elif minute == 5:
+        granularity = 'M5'
+    elif minute == 15:
+        granularity = 'M15'
+    elif minute == 30:
+        granularity = 'M30'
+    elif minute == 60:
+        granularity = 'H1'
+    elif minute == 120:
+        granularity = 'H2'
+    elif minute == 240:
+        granularity = 'H4'
+    elif minute == 480:
+        granularity = 'H8'
+    params = {
+        'count': count,
+        'granularity': granularity,
+    }
+    if start is not None:
+        params['from'] = start
+    r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+    response = api.request(r)
+
+    # レスポンスの整形
+    def join_json(candle):
+        tmp = candle['mid']
+        tmp['time'] = candle['time']
+        tmp['v'] = candle['volume']
+        tmp['complete'] = candle['complete']
+        return tmp
+
+    data_list = [join_json(candle) for candle in response['candles']]
+    df = pd.DataFrame(data_list)
+    last_timestamp = int(float(df.iloc[-1]['time']))
+
+    # 型変更
+    df['time'] = df['time'].astype('float64')
+    df['o'] = df['o'].astype('float64')
+    df['h'] = df['h'].astype('float64')
+    df['l'] = df['l'].astype('float64')
+    df['c'] = df['c'].astype('float64')
+    df['v'] = df['v'].astype('float64')
+
+    # タイムゾーンの変更、インデックス化
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    df['time'] = df['time'] + pd.Timedelta('09:00:00')  # 日本時間へ変換
+    df.set_index('time', inplace=True)  # 時間をインデックスにする
+    df = df.loc[:, ['c', 'h', 'l', 'o', 'v', 'complete']]  # 列の順番変更
+    df = df.rename(columns={'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume'})
+
+    return df, last_timestamp
+
+
+accountID, token = exampleAuth()
+instrument = 'USD_JPY'
+minute = 240
+start = datetime.strptime('2018-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+end = datetime.strptime('2019-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+df = get_period_data(start, end, minute, instrument='USD_JPY')
+str_start = start
+#print(df)
+#df.to_csv(instrument + "_" + str(minute) + "_" + "2018" + ".csv")

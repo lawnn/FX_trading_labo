@@ -77,7 +77,7 @@ def send_api(count, start, minute, instrument):
     df['time'] = df['time'] + pd.Timedelta('09:00:00')  # 日本時間へ変換
     df.set_index('time', inplace=True)  # 時間をインデックスにする
     df = df.loc[:, ['o', 'h', 'l', 'c', 'v', 'complete']]  # 列の順番変更
-    df = df.rename(columns={'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume'})
+    df = df.rename(columns={'o': 'o', 'h': 'h', 'l': 'l', 'c': 'c', 'v': 'volume'})
 
     return df, last_timestamp
 

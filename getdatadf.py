@@ -88,6 +88,6 @@ minute = 240
 start = datetime.strptime('2018-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 end = datetime.strptime('2019-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 df = get_period_data(start, end, minute, instrument=instrument)
-print(df.to_json(orient="index"))
+#print(df.to_json(orient="index"))
 #df.to_csv(instrument + "_" + str(minute) + "_" + "2018" + ".csv")
-#df.to_json(instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")
+#df.to_json("json/" + instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")

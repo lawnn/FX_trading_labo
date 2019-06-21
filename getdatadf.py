@@ -6,7 +6,7 @@ from auth import exampleAuth
 
 
 # start～endまでのデータ取得
-def get_period_data(start, end, minute, instrument='USD_JPY'):
+def get_period_data(start, end, minute, instrument):
     timestamp = start.timestamp()
     concats = []
     count = 5000
@@ -76,7 +76,7 @@ def send_api(count, start, minute, instrument):
     df['time'] = pd.to_datetime(df['time'], unit='s')
     df['time'] = df['time'] + pd.Timedelta('09:00:00')  # 日本時間へ変換
     df.set_index('time', inplace=True)  # 時間をインデックスにする
-    df = df.loc[:, ['c', 'h', 'l', 'o', 'v', 'complete']]  # 列の順番変更
+    df = df.loc[:, ['o', 'h', 'l', 'c', 'v', 'complete']]  # 列の順番変更
     df = df.rename(columns={'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume'})
 
     return df, last_timestamp
@@ -87,7 +87,7 @@ instrument = 'USD_JPY'
 minute = 240
 start = datetime.strptime('2018-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 end = datetime.strptime('2019-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
-df = get_period_data(start, end, minute, instrument='USD_JPY')
-str_start = start
-#print(df)
+df = get_period_data(start, end, minute, instrument=instrument)
+print(df.to_json(orient="index"))
 #df.to_csv(instrument + "_" + str(minute) + "_" + "2018" + ".csv")
+#df.to_json(instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")

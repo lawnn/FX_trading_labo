@@ -26,6 +26,7 @@ def get_period_data(start, end, minute, instrument):
 # 時間足のdfを取得
 def send_api(count, start, minute, instrument):
     # oandaへのリクエストの送信
+    global granularity
     api = API(access_token=token, environment="practice", headers={"Accept-Datetime-Format": "Unix"})
     if minute == 1:
         granularity = 'M1'

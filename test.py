@@ -13,9 +13,10 @@ params = {
 }
 
 r = instruments.InstrumentsCandles(instrument="USD_JPY", params=params)
-api.request(r)
+response = api.request(r)
 
-pprint(api.request(r)["candles"][1]["mid"]["c"])
+
+pprint(float(response["candles"][1]["mid"]["c"]))
 
 #data = []
 #for raw in r.response['candles']:

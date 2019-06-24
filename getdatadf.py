@@ -85,10 +85,15 @@ def send_api(count, start, minute, instrument):
 
 accountID, token = exampleAuth()
 instrument = 'USD_JPY'
-minute = 240
-start = datetime.strptime('2018-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
-end = datetime.strptime('2019-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
-df = get_period_data(start, end, minute, instrument=instrument)
-#print(df.to_json(orient="index"))
-#df.to_csv(instrument + "_" + str(minute) + "_" + "2018" + ".csv")
-#df.to_json("json/" + instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")
+minute = [30, 60, 120, 240, 240]
+# start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+# end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+# df = get_period_data(start, end, minute, instrument=instrument)
+# print(df.to_json(orient="index"))
+# df.to_csv(instrument + "_" + granularity + "_" + "2018" + ".csv")
+# df.to_json("json/" + instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")
+for minute in minute:
+    start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+    end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+    df = get_period_data(start, end, minute, instrument=instrument)
+    df.to_csv('csv/' + instrument + "_" + granularity + "_" + "2017.1.1" + ".csv")

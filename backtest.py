@@ -114,7 +114,7 @@ while i < 5000:
     if flag["order"]:
         flag = check_order(flag)
 
-    data = get_price(60, i)
+    data = get_price_from_file(path, i)
     if data["close_time"] != last_data["close_time"]:
         print_price(data)
 

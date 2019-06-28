@@ -6,14 +6,14 @@ import time
 import pandas as pd
 
 
-def get_price(response, i):
-    data = response
+def get_price(i):
+    data = client.request(r)
 
     return {"close_time": data["candles"][i]['time'],
-            "open_price": data["candles"][i]["mid"]['o'],
-            "high_price": data["candles"][i]["mid"]['h'],
-            "low_price": data["candles"][i]["mid"]['l'],
-            "close_price": data["candles"][i]["mid"]['c']}
+            "open_price": round(float(data["candles"][i]["mid"]['o']), 3),
+            "high_price": round(float(data["candles"][i]["mid"]['h']), 3),
+            "low_price": round(float(data["candles"][i]["mid"]['l']), 3),
+            "close_price": round(float(data["candles"][i]["mid"]['c']), 3)}
 
 
 def get_price_from_file(path, i):
@@ -101,8 +101,8 @@ params = {
 }
 path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-response = client.request(r)
-last_data = get_price_from_file(path, 0)
+last_data = get_price(0)
+#last_data = get_price_from_file(path, 0)
 print_price(last_data)
 flag = {"buy_signal": 0,
         "sell_signal": 0,
@@ -114,7 +114,8 @@ while i < 5000:
     if flag["order"]:
         flag = check_order(flag)
 
-    data = get_price_from_file(path, i)
+    data = get_price(i)
+    #data = get_price_from_file(path, i)
     if data["close_time"] != last_data["close_time"]:
         print_price(data)
 

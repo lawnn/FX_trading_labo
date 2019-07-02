@@ -6,24 +6,41 @@ import time
 import pandas as pd
 
 
-def get_price(i):
-    data = client.request(r)
-
-    return {"close_time": data["candles"][i]['time'],
-            "open_price": round(float(data["candles"][i]["mid"]['o']), 3),
-            "high_price": round(float(data["candles"][i]["mid"]['h']), 3),
-            "low_price": round(float(data["candles"][i]["mid"]['l']), 3),
-            "close_price": round(float(data["candles"][i]["mid"]['c']), 3)}
+term = 20
+wait = 0
 
 
-def get_price_from_file(path, i):
-    data = pd.read_csv(path)
+def get_price():
+    client = API(access_token=token, environment="practice")
+    instrument = "GBP_JPY"
+    params = {
+        "count": 50,
+        "granularity": "H1"
+    }
+    r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+    price = [{"close_time": client.request(r)["candles"][i]['time'],
+              "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
+              "high_price": round(float(client.request(r)["candles"][i]["mid"]['h']), 3),
+              "low_price": round(float(client.request(r)["candles"][i]["mid"]['l']), 3),
+              "close_price": round(float(client.request(r)["candles"][i]["mid"]['c']), 3)}
+             for i in range(params['count'])]
+    return price
 
-    return {"close_time": data.loc[i, 'time'],
-            "open_price": round(data.loc[i, 'o'], 3),
-            "high_price": round(data.loc[i, 'h'], 3),
-            "low_price": round(data.loc[i, 'l'], 3),
-            "close_price": round(data.loc[i, 'c'], 3)}
+
+def get_price_from_file():
+    instrument = "GBP_JPY"
+    params = {
+        "count": 1,
+        "granularity": "H1"
+    }
+    d = pd.read_csv('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
+    price = [{"close_time": d.loc[i, 'time'],
+              "open_price": round(d.loc[i, 'o'], 3),
+              "high_price": round(d.loc[i, 'h'], 3),
+              "low_price": round(d.loc[i, 'l'], 3),
+              "close_price": round(d.loc[i, 'c'], 3)}
+             for i in range(len(d))]
+    return price
 
 
 def print_price(data):
@@ -32,54 +49,40 @@ def print_price(data):
           + " 終値： " + str(data['close_price']))
 
 
-def check_candle(data):
-    global increase_rate
-    try:
-        realbody_rate = abs(float(data["close_price"]) - float(data["open_price"])) / (float(data["high_price"]) - float(data["low_price"]))
-        increase_rate = float(data["close_price"]) / float(data["open_price"]) - 1
-    except ZeroDivisionError:
-        print("ZeroDivisionError!!")
+# ドンチャンブレイクを判定する関数
+def donchian(data, last_data):
+    highest = max(i["high_price"] for i in last_data)
+    if data["high_price"] > highest:
+        return {"side": "BUY", "price": highest}
+
+    lowest = min(i["low_price"] for i in last_data)
+    if data["low_price"] < lowest:
+        return {"side": "SELL", "price": lowest}
+
+    return {"side": None, "price": 0}
 
 
-    if float(data["close_price"]) < float(data["open_price"]):
-        return False
-    elif increase_rate < 0.0005:
-        return False
-    elif realbody_rate < 0.5:
-        return False
-    else:
-        return True
+# ドンチャンブレイクを判定してエントリー注文を出す関数
+def entry_signal(data, last_data, flag):
+    signal = donchian(data, last_data)
+    if signal["side"] == "BUY":
+        print("過去{0}足の最高値{1}円を、直近の高値が{2}円でブレイクしました".format(term, signal["price"], data["high_price"]))
+        print(str(data["close_price"]) + "円で買いの指値注文を出します")
 
-
-def check_ascend(data, last_data):
-    if float(data["open_price"]) > float(last_data["open_price"]) \
-            and float(data["close_price"]) > float(last_data["close_price"]):
-        return True
-    else:
-        return False
-
-
-# 買いシグナルが点灯したら指値で買い注文する関数
-def buy_signal(data, last_data, flag):
-    if flag["buy_signal"] == 0 and check_candle(data):
-        flag["buy_signal"] = 1
-    elif flag["buy_signal"] == 1 and check_candle(data) and check_ascend(data, last_data):
-        flag["buy_signal"] = 2
-    elif flag["buy_signal"] == 2 and check_candle(data) and check_ascend(data, last_data):
-        print("３本連続で陽線 なので" + str(data["close_price"]) + "で買い指値")
         # ここに買い注文のコードを入れる
-        flag["buy_signal"] = 3
-        flag["order"] = True
-    else:
-        flag["buy_signal"] = 0
-    return flag
 
+        flag["order"]["exist"] = True
+        flag["order"]["side"] = "BUY"
 
-# 手仕舞いのシグナルが出たら決済の成行注文を出す関数
-def close_position(data, last_data, flag):
-    if data["close_price"] < last_data["close_price"]:
-        print("前回の終値を下回ったので" + str(data["close_price"]) + "で決済")
-        flag["position"] = False
+    if signal["side"] == "SELL":
+        print("過去{0}足の最安値{1}円を、直近の安値が{2}円でブレイクしました".format(term, signal["price"], data["low_price"]))
+        print(str(data["close_price"]) + "円で売りの指値注文を出します")
+
+        # ここに売り注文のコードを入れる
+
+        flag["order"]["exist"] = True
+        flag["order"]["side"] = "SELL"
+
     return flag
 
 
@@ -87,46 +90,113 @@ def close_position(data, last_data, flag):
 def check_order(flag):
     # 注文状況を確認して通っていたら以下を実行
     # 一定時間で注文が通っていなければキャンセルする
-    flag["order"] = False
-    flag["position"] = True
+
+    flag["order"]["exist"] = False
+    flag["order"]["count"] = 0
+    flag["position"]["exist"] = True
+    flag["position"]["side"] = flag["order"]["side"]
+
+    return flag
+
+
+# 手仕舞いのシグナルが出たら決済の成行注文 + ドテン注文 を出す関数
+def close_position(data, last_data, flag):
+    flag["position"]["count"] += 1
+    signal = donchian(data, last_data)
+
+    if flag["position"]["side"] == "BUY":
+        if signal["side"] == "SELL":
+            print("過去{0}足の最安値{1}円を、直近の安値が{2}円でブレイクしました".format(term, signal["price"], data["low_price"]))
+            print("成行注文を出してポジションを決済します")
+
+            # 決済の成行注文コードを入れる
+
+            flag["position"]["exist"] = False
+            flag["position"]["count"] = 0
+
+            print("さらに" + str(data["close_price"]) + "円で売りの指値注文を入れてドテンします")
+
+            # ここに売り注文のコードを入れる
+
+            flag["order"]["exist"] = True
+            flag["order"]["side"] = "SELL"
+
+    if flag["position"]["side"] == "SELL":
+        if signal["side"] == "BUY":
+            print("過去{0}足の最高値{1}円を、直近の高値が{2}円でブレイクしました".format(term, signal["price"], data["high_price"]))
+            print("成行注文を出してポジションを決済します")
+
+            # 決済の成行注文コードを入れる
+
+            flag["position"]["exist"] = False
+            flag["position"]["count"] = 0
+
+            print("さらに" + str(data["close_price"]) + "円で買いの指値注文を入れてドテンします")
+
+            # ここに買い注文のコードを入れる
+
+            flag["order"]["exist"] = True
+            flag["order"]["side"] = "BUY"
+
     return flag
 
 
 accountID, token = exampleAuth()
-client = API(access_token=token)
-instrument = "GBP_JPY"
-params = {
-    "count": 5000,
-    "granularity": "H1"
+# client = API(access_token=token)
+# instrument = "GBP_JPY"
+# params = {
+#     "count": 5000,
+#     "granularity": "H1"
+# }
+# path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
+# r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+
+
+
+# ------------------------------
+# ここからメイン処理
+# ------------------------------
+
+price = get_price_from_file()
+last_data = []
+#last_data = get_price_from_file(path, i)
+
+flag = {
+    "order": {
+        "exist": False,
+        "side": "",
+        "count": 0
+    },
+    "position": {
+        "exist": False,
+        "side": "",
+        "count": 0
+    }
 }
-path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
-r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-last_data = get_price(0)
-#last_data = get_price_from_file(path, 0)
-print_price(last_data)
-flag = {"buy_signal": 0,
-        "sell_signal": 0,
-        "order": False,
-        "position": False}
-i = 1
 
-while i < 5000:
-    if flag["order"]:
-        flag = check_order(flag)
+i = 0
+while i < len(price):
 
-    data = get_price(i)
-    #data = get_price_from_file(path, i)
-    if data["close_time"] != last_data["close_time"]:
-        print_price(data)
-
-        if flag["position"]:
-            flag = close_position(data, last_data, flag)
-        else:
-            flag = buy_signal(data, last_data, flag)
-
-        last_data["close_time"] = data["close_time"]
-        last_data["open_price"] = data["open_price"]
-        last_data["close_price"] = data["close_price"]
+    # ドンチャンの判定に使う過去ｎ足分の安値・高値データを準備する
+    if len(last_data) < term:
+        last_data.append(price[i])
+        print_price(price[i])
+        time.sleep(wait)
         i += 1
+        continue
 
-    time.sleep(0)
+    data = price[i]
+    print_price(data)
+
+    if flag["order"]["exist"]:
+        flag = check_order(flag)
+    elif flag["position"]["exist"]:
+        flag = close_position(data, last_data, flag)
+    else:
+        flag = entry_signal(data, last_data, flag)
+
+    # 過去データをｎ個ピッタリに保つために先頭を削除
+    del last_data[0]
+    last_data.append(data)
+    i += 1
+    time.sleep(wait)

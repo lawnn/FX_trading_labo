@@ -5,19 +5,13 @@ import dateutil.parser
 import time
 import pandas as pd
 
+#-----設定項目
+term = 20       #過去n期間の設定
+wait = 0        #ループの待機時間
 
-term = 20
-wait = 0
 
-
+#oandaのapiを使用する関数
 def get_price():
-    client = API(access_token=token, environment="practice")
-    instrument = "GBP_JPY"
-    params = {
-        "count": 50,
-        "granularity": "H1"
-    }
-    r = instruments.InstrumentsCandles(instrument=instrument, params=params)
     price = [{"close_time": client.request(r)["candles"][i]['time'],
               "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
               "high_price": round(float(client.request(r)["candles"][i]["mid"]['h']), 3),
@@ -27,13 +21,8 @@ def get_price():
     return price
 
 
-def get_price_from_file():
-    instrument = "GBP_JPY"
-    params = {
-        "count": 1,
-        "granularity": "H1"
-    }
-    d = pd.read_csv('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
+def get_price_from_file(path):
+    d = pd.read_csv(path)
     price = [{"close_time": d.loc[i, 'time'],
               "open_price": round(d.loc[i, 'o'], 3),
               "high_price": round(d.loc[i, 'h'], 3),
@@ -140,26 +129,26 @@ def close_position(data, last_data, flag):
 
     return flag
 
-
+#oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
-# client = API(access_token=token)
-# instrument = "GBP_JPY"
-# params = {
-#     "count": 5000,
-#     "granularity": "H1"
-# }
-# path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
-# r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-
+client = API(access_token=token)
+instrument = "GBP_JPY"
+params = {
+    "count": 50,
+    "granularity": "H1"
+}
+r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+#Use csv file
+csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 
 
 # ------------------------------
 # ここからメイン処理
 # ------------------------------
 
-price = get_price_from_file()
+#price = get_price
+price = get_price_from_file(csv_path)
 last_data = []
-#last_data = get_price_from_file(path, i)
 
 flag = {
     "order": {

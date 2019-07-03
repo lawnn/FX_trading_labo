@@ -6,12 +6,13 @@ from datetime import datetime
 import time
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 #-----設定項目
-term = 40       # 過去n期間の設定
+term = 30       # 過去n期間の設定
 wait = 0        # ループの待機時間
-lot = 1000     # 注文枚数
-slippage = 0.2  # 手数料・スリッページ
+lot = 10000     # 注文枚数
+slippage = 0.0002  # 手数料・スリッページ
 
 
 #oandaのapiを使用する関数
@@ -153,6 +154,7 @@ def close_position(data, last_data, flag):
 
     return flag
 
+
 # 各トレードのパフォーマンスを記録する関数
 def records(flag, data):
     # 取引手数料等の計算
@@ -164,6 +166,9 @@ def records(flag, data):
     flag["records"]["log"].append(log)
     flag["records"]["slippage"].append(trade_cost)
 
+    # 手仕舞った日時の記録
+    flag["records"]["date"].append(data["close_time"])
+
     # 値幅の計算
     buy_profit = exit_price - entry_price - trade_cost
     sell_profit = entry_price - exit_price - trade_cost
@@ -172,6 +177,7 @@ def records(flag, data):
     if flag["position"]["side"] == "BUY":
         flag["records"]["buy-count"] += 1
         flag["records"]["buy-profit"].append(buy_profit)
+        flag["records"]["gross-profit"].append(flag["records"]["gross-profit"][-1] + buy_profit)
         flag["records"]["buy-return"].append(round(buy_profit / entry_price * 100, 4))
         flag["records"]["buy-holding-periods"].append(flag["position"]["count"])
         if buy_profit > 0:
@@ -185,6 +191,7 @@ def records(flag, data):
     if flag["position"]["side"] == "SELL":
         flag["records"]["sell-count"] += 1
         flag["records"]["sell-profit"].append(sell_profit)
+        flag["records"]["gross-profit"].append(flag["records"]["gross-profit"][-1] + sell_profit)
         flag["records"]["sell-return"].append(round(sell_profit / entry_price * 100, 4))
         flag["records"]["sell-holding-periods"].append(flag["position"]["count"])
         if sell_profit > 0:
@@ -194,6 +201,11 @@ def records(flag, data):
         else:
             log = str(sell_profit) + "円の損失です\n"
             flag["records"]["log"].append(log)
+
+    # ドローダウンの計算
+    drawdown = max(flag["records"]["gross-profit"]) - flag["records"]["gross-profit"][-1]
+    if drawdown > flag["records"]["drawdown"]:
+        flag["records"]["drawdown"] = drawdown
 
     return flag
 
@@ -207,36 +219,50 @@ def backtest(flag):
     print("--------------------------")
     print("買いエントリの成績")
     print("--------------------------")
-    print("トレード回数  :  {}回".format(flag["records"]["buy-count"]))
-    print("勝率          :  {}％".format(round(flag["records"]["buy-winning"] / flag["records"]["buy-count"] * 100, 1)))
-    print("平均リターン  :  {}％".format(round(np.average(flag["records"]["buy-return"]), 2)))
-    print("総損益        :  {}円".format(np.sum(flag["records"]["buy-profit"])))
-    print("平均保有期間  :  {}足分".format(round(np.average(flag["records"]["buy-holding-periods"]), 1)))
+    print("トレード回数     :  {}回".format(flag["records"]["buy-count"]))
+    print("勝率             :  {}％".format(round(flag["records"]["buy-winning"] / flag["records"]["buy-count"] * 100, 1)))
+    print("平均リターン     :  {}％".format(round(np.average(flag["records"]["buy-return"]), 2)))
+    print("総損益           :  {}円".format(np.sum(flag["records"]["buy-profit"])))
+    print("平均保有期間     :  {}足分".format(round(np.average(flag["records"]["buy-holding-periods"]), 1)))
 
     print("--------------------------")
     print("売りエントリの成績")
     print("--------------------------")
-    print("トレード回数  :  {}回".format(flag["records"]["sell-count"]))
-    print("勝率          :  {}％".format(round(flag["records"]["sell-winning"] / flag["records"]["sell-count"] * 100, 1)))
-    print("平均リターン  :  {}％".format(round(np.average(flag["records"]["sell-return"]), 2)))
-    print("総損益        :  {}円".format(np.sum(flag["records"]["sell-profit"])))
-    print("平均保有期間  :  {}足分".format(round(np.average(flag["records"]["sell-holding-periods"]), 1)))
+    print("トレード回数     :  {}回".format(flag["records"]["sell-count"]))
+    print(
+        "勝率             :  {}％".format(round(flag["records"]["sell-winning"] / flag["records"]["sell-count"] * 100, 1)))
+    print("平均リターン     :  {}％".format(round(np.average(flag["records"]["sell-return"]), 2)))
+    print("総損益           :  {}円".format(np.sum(flag["records"]["sell-profit"])))
+    print("平均保有期間     :  {}足分".format(round(np.average(flag["records"]["sell-holding-periods"]), 1)))
 
     print("--------------------------")
     print("総合の成績")
     print("--------------------------")
-    print("総損益        :  {}円".format(np.sum(flag["records"]["sell-profit"]) + np.sum(flag["records"]["buy-profit"])))
-    print("手数料合計    :  {}円".format(np.sum(flag["records"]["slippage"])))
+    print("最大ドローダウン :  {0}円 / {1}％".format(-1 * flag["records"]["drawdown"], -1 * round(
+        flag["records"]["drawdown"] / max(flag["records"]["gross-profit"]) * 100, 1)))
+    print("総損益           :  {}円".format(flag["records"]["gross-profit"][-1]))
+    print("手数料合計       :  {}円".format(-1 * np.sum(flag["records"]["slippage"])))
 
     # ログファイルの出力
     file = open("./{0}-log.txt".format(datetime.now().strftime("%Y-%m-%d-%H-%M")), 'wt', encoding='utf-8')
     file.writelines(flag["records"]["log"])
 
+    # 損益曲線をプロット
+    del flag["records"]["gross-profit"][0]
+    date_list = pd.to_datetime(flag["records"]["date"])
+
+    plt.plot(date_list, flag["records"]["gross-profit"])
+    plt.xlabel("Date")
+    plt.ylabel("Balance")
+    plt.xticks(rotation=50)  # X軸の目盛りを50度回転
+
+    plt.show()
+
 
 #oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
 client = API(access_token=token)
-instrument = "USD_JPY"
+instrument = "GBP_JPY"
 params = {
     "count": 50,
     "granularity": "H1"
@@ -252,7 +278,6 @@ csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' 
 
 #price = get_price
 price = get_price_from_file(csv_path)
-last_data = []
 
 flag = {
     "order": {
@@ -280,15 +305,19 @@ flag = {
         "sell-profit": [],
         "sell-holding-periods": [],
 
+        "drawdown": 0,
+        "date": [],
+        "gross-profit": [0],
         "slippage": [],
         "log": []
     }
 }
 
+last_data = []
 i = 0
 while i < len(price):
 
-    # ドンチャンの判定に使う過去ｎ足分の安値・高値データを準備する
+    # ドンチャンの判定に使う過去30足分の安値・高値データを準備する
     if len(last_data) < term:
         last_data.append(price[i])
         flag = log_price(price[i], flag)

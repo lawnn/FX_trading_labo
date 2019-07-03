@@ -166,8 +166,9 @@ def records(flag, data):
     flag["records"]["log"].append(log)
     flag["records"]["slippage"].append(trade_cost)
 
-    # 手仕舞った日時の記録
-    flag["records"]["date"].append(data["close_time"])
+    # 手仕舞った日時と保有期間を記録
+    flag["records"]["date"].append(data["close_time_dt"])
+    flag["records"]["holding-periods"].append(flag["position"]["count"])
 
     # 値幅の計算
     buy_profit = exit_price - entry_price - trade_cost
@@ -175,13 +176,10 @@ def records(flag, data):
 
     # 利益が出てるかの計算
     if flag["position"]["side"] == "BUY":
-        flag["records"]["buy-count"] += 1
-        flag["records"]["buy-profit"].append(buy_profit)
-        flag["records"]["gross-profit"].append(flag["records"]["gross-profit"][-1] + buy_profit)
-        flag["records"]["buy-return"].append(round(buy_profit / entry_price * 100, 4))
-        flag["records"]["buy-holding-periods"].append(flag["position"]["count"])
+        flag["records"]["side"].append("BUY")
+        flag["records"]["profit"].append(buy_profit)
+        flag["records"]["return"].append(round(buy_profit / entry_price * 100, 4))
         if buy_profit > 0:
-            flag["records"]["buy-winning"] += 1
             log = str(buy_profit) + "円の利益です\n"
             flag["records"]["log"].append(log)
         else:
@@ -189,75 +187,115 @@ def records(flag, data):
             flag["records"]["log"].append(log)
 
     if flag["position"]["side"] == "SELL":
-        flag["records"]["sell-count"] += 1
-        flag["records"]["sell-profit"].append(sell_profit)
-        flag["records"]["gross-profit"].append(flag["records"]["gross-profit"][-1] + sell_profit)
-        flag["records"]["sell-return"].append(round(sell_profit / entry_price * 100, 4))
-        flag["records"]["sell-holding-periods"].append(flag["position"]["count"])
+        flag["records"]["side"].append("SELL")
+        flag["records"]["profit"].append(sell_profit)
+        flag["records"]["return"].append(round(sell_profit / entry_price * 100, 4))
         if sell_profit > 0:
-            flag["records"]["sell-winning"] += 1
             log = str(sell_profit) + "円の利益です\n"
             flag["records"]["log"].append(log)
         else:
             log = str(sell_profit) + "円の損失です\n"
             flag["records"]["log"].append(log)
 
-    # ドローダウンの計算
-    drawdown = max(flag["records"]["gross-profit"]) - flag["records"]["gross-profit"][-1]
-    if drawdown > flag["records"]["drawdown"]:
-        flag["records"]["drawdown"] = drawdown
-
     return flag
 
 
 # バックテストの集計用の関数
 def backtest(flag):
-    buy_gross_profit = np.sum(flag["records"]["buy-profit"])
-    sell_gross_profit = np.sum(flag["records"]["sell-profit"])
+    # 成績を記録したpandas DataFrameを作成
+    records = pd.DataFrame({
+        "Date": pd.to_datetime(flag["records"]["date"]),
+        "Profit": flag["records"]["profit"],
+        "Side": flag["records"]["side"],
+        "Rate": flag["records"]["return"],
+        "Periods": flag["records"]["holding-periods"],
+        "Slippage": flag["records"]["slippage"]
+    })
+
+    # 総損益の列を追加する
+    records["Gross"] = records.Profit.cumsum()
+
+    # 最大ドローダウンの列を追加する
+    records["Drawdown"] = records.Gross.cummax().subtract(records.Gross)
+    records["DrawdownRate"] = round(records.Drawdown / records.Gross.cummax() * 100, 1)
+
+    # 買いエントリーと売りエントリーだけをそれぞれ抽出する
+    buy_records = records[records.Side.isin(["BUY"])]
+    sell_records = records[records.Side.isin(["SELL"])]
+
+    # 月別のデータを集計する
+    records["月別集計"] = pd.to_datetime(records.Date.apply(lambda x: x.strftime('%Y/%m')))
+    grouped = records.groupby("月別集計")
+
+    month_records = pd.DataFrame({
+        "Number": grouped.Profit.count(),
+        "Gross": grouped.Profit.sum(),
+        "Rate": round(grouped.Rate.mean(), 2),
+        "Drawdown": grouped.Drawdown.max(),
+        "Periods": grouped.Periods.mean()
+    })
 
     print("バックテストの結果")
-    print("--------------------------")
+    print("-----------------------------------")
     print("買いエントリの成績")
-    print("--------------------------")
-    print("トレード回数     :  {}回".format(flag["records"]["buy-count"]))
-    print("勝率             :  {}％".format(round(flag["records"]["buy-winning"] / flag["records"]["buy-count"] * 100, 1)))
-    print("平均リターン     :  {}％".format(round(np.average(flag["records"]["buy-return"]), 2)))
-    print("総損益           :  {}円".format(np.sum(flag["records"]["buy-profit"])))
-    print("平均保有期間     :  {}足分".format(round(np.average(flag["records"]["buy-holding-periods"]), 1)))
+    print("-----------------------------------")
+    print("トレード回数       :  {}回".format(len(buy_records)))
+    print("勝率               :  {}％".format(round(len(buy_records[buy_records.Profit > 0]) / len(buy_records) * 100, 1)))
+    print("平均リターン       :  {}％".format(round(buy_records.Rate.mean(), 2)))
+    print("総損益             :  {}円".format(buy_records.Profit.sum()))
+    print("平均保有期間       :  {}足分".format(round(buy_records.Periods.mean(), 1)))
 
-    print("--------------------------")
+    print("-----------------------------------")
     print("売りエントリの成績")
-    print("--------------------------")
-    print("トレード回数     :  {}回".format(flag["records"]["sell-count"]))
-    print(
-        "勝率             :  {}％".format(round(flag["records"]["sell-winning"] / flag["records"]["sell-count"] * 100, 1)))
-    print("平均リターン     :  {}％".format(round(np.average(flag["records"]["sell-return"]), 2)))
-    print("総損益           :  {}円".format(np.sum(flag["records"]["sell-profit"])))
-    print("平均保有期間     :  {}足分".format(round(np.average(flag["records"]["sell-holding-periods"]), 1)))
+    print("-----------------------------------")
+    print("トレード回数       :  {}回".format(len(sell_records)))
+    print("勝率               :  {}％".format(
+        round(len(sell_records[sell_records.Profit > 0]) / len(sell_records) * 100, 1)))
+    print("平均リターン       :  {}％".format(round(sell_records.Rate.mean(), 2)))
+    print("総損益             :  {}円".format(sell_records.Profit.sum()))
+    print("平均保有期間       :  {}足分".format(round(sell_records.Periods.mean(), 1)))
 
-    print("--------------------------")
+    print("-----------------------------------")
     print("総合の成績")
-    print("--------------------------")
-    print("最大ドローダウン :  {0}円 / {1}％".format(-1 * flag["records"]["drawdown"], -1 * round(
-        flag["records"]["drawdown"] / max(flag["records"]["gross-profit"]) * 100, 1)))
-    print("総損益           :  {}円".format(flag["records"]["gross-profit"][-1]))
-    print("手数料合計       :  {}円".format(-1 * np.sum(flag["records"]["slippage"])))
+    print("-----------------------------------")
+    print("全トレード数       :  {}回".format(len(records)))
+    print("勝率               :  {}％".format(round(len(records[records.Profit > 0]) / len(records) * 100, 1)))
+    print("平均リターン       :  {}％".format(round(records.Rate.mean(), 2)))
+    print("平均保有期間       :  {}足分".format(round(records.Periods.mean(), 1)))
+    print("")
+    print("最大の勝ちトレード :  {}円".format(records.Profit.max()))
+    print("最大の負けトレード :  {}円".format(records.Profit.min()))
+    print("最大ドローダウン   :  {0}円 / {1}％".format(-1 * records.Drawdown.max(),
+                                             -1 * records.DrawdownRate.loc[records.Drawdown.idxmax()]))
+    print("利益合計           :  {}円".format(records[records.Profit > 0].Profit.sum()))
+    print("損失合計           :  {}円".format(records[records.Profit < 0].Profit.sum()))
+    print("")
+    print("最終損益           :  {}円".format(records.Profit.sum()))
+    print("手数料合計         :  {}円".format(-1 * records.Slippage.sum()))
+
+    print("-----------------------------------")
+    print("月別の成績")
+
+    for index, row in month_records.iterrows():
+        print("-----------------------------------")
+        print("{0}年{1}月の成績".format(index.year, index.month))
+        print("-----------------------------------")
+        print("トレード数         :  {}回".format(row.Number.astype(int)))
+        print("月間損益           :  {}円".format(row.Gross.astype(int)))
+        print("平均リターン       :  {}％".format(row.Rate))
+        print("月間ドローダウン   :  {}円".format(-1 * row.Drawdown.astype(int)))
 
     # ログファイルの出力
     file = open("./{0}-log.txt".format(datetime.now().strftime("%Y-%m-%d-%H-%M")), 'wt', encoding='utf-8')
     file.writelines(flag["records"]["log"])
 
     # 損益曲線をプロット
-    del flag["records"]["gross-profit"][0]
-    date_list = pd.to_datetime(flag["records"]["date"])
-
-    plt.plot(date_list, flag["records"]["gross-profit"])
+    plt.plot(records.Date, records.Gross)
     plt.xlabel("Date")
     plt.ylabel("Balance")
     plt.xticks(rotation=50)  # X軸の目盛りを50度回転
 
     plt.show()
-
 
 #oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
@@ -293,21 +331,11 @@ flag = {
         "count": 0
     },
     "records": {
-        "buy-count": 0,
-        "buy-winning": 0,
-        "buy-return": [],
-        "buy-profit": [],
-        "buy-holding-periods": [],
-
-        "sell-count": 0,
-        "sell-winning": 0,
-        "sell-return": [],
-        "sell-profit": [],
-        "sell-holding-periods": [],
-
-        "drawdown": 0,
         "date": [],
-        "gross-profit": [0],
+        "profit": [],
+        "return": [],
+        "side": [],
+        "holding-periods": [],
         "slippage": [],
         "log": []
     }

@@ -44,6 +44,8 @@ def send_api(count, start, minute, instrument):
         granularity = 'H4'
     elif minute == 480:
         granularity = 'H8'
+    elif minute == 1440:
+        granularity = 'D'
     params = {
         'count': count,
         'granularity': granularity,
@@ -84,8 +86,8 @@ def send_api(count, start, minute, instrument):
 
 
 accountID, token = exampleAuth()
-instrument = 'USD_JPY'
-minute = [30, 60, 120, 240, 240]
+instrument = 'GBP_JPY'
+minute = [30, 60, 120, 240, 480, 1440]
 # start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # df = get_period_data(start, end, minute, instrument=instrument)

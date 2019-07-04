@@ -5,17 +5,27 @@ import dateutil.parser
 from datetime import datetime
 import time
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+# import numpy as np
 
-#-----設定項目
+# -----設定項目
+buy_term = 25             # 買いエントリーのブレイク期間の設定
+sell_term = 25             # 売りエントリーのブレイク期間の設定
+
+judge_price = {
+  "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
+  "SELL": "close_price"      # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+}
+
+volatility_term = 30       # 平均ボラティリティの計算に使う期間
+stop_range = 2             # 何レンジ幅に損切（ストップ）を置くか
 term = 30       # 過去n期間の設定
 wait = 0        # ループの待機時間
 lot = 10000     # 注文枚数
 slippage = 0.0002  # 手数料・スリッページ
 
 
-#oandaのapiを使用する関数
+# oandaのapiを使用する関数
 def get_price():
     price = [{"close_time": client.request(r)["candles"][i]['time'],
               "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
@@ -52,43 +62,53 @@ def print_price(data):
           + " 終値： " + str(data['close_price']))
 
 
+# 平均ボラティリティを計算する関数
+def calculate_volatility(last_data):
+    high_sum = sum(i["high_price"] for i in last_data[-1 * volatility_term:])
+    low_sum = sum(i["low_price"] for i in last_data[-1 * volatility_term:])
+    volatility = round((high_sum - low_sum) / volatility_term)
+    return volatility
+
+
 # ドンチャンブレイクを判定する関数
 def donchian(data, last_data):
-    highest = max(i["high_price"] for i in last_data)
-    if data["high_price"] > highest:
+    highest = max(i["high_price"] for i in last_data[(-1 * buy_term):])
+    if data[judge_price["BUY"]] > highest:
         return {"side": "BUY", "price": highest}
 
-    lowest = min(i["low_price"] for i in last_data)
-    if data["low_price"] < lowest:
+    lowest = min(i["low_price"] for i in last_data[(-1 * sell_term):])
+    if data[judge_price["SELL"]] < lowest:
         return {"side": "SELL", "price": lowest}
 
     return {"side": None, "price": 0}
 
 
-# ドンチャンブレイクを判定してエントリー注文を出す関数
+# エントリー注文を出す関数
 def entry_signal(data, last_data, flag):
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
         flag["records"]["log"].append(
-            "過去{0}足の最高値{1}円を、直近の高値が{2}円でブレイクしました\n".format(term, signal["price"], data["high_price"]))
+            "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
         flag["records"]["log"].append(str(data["close_price"]) + "円で買いの指値注文を出します\n")
 
         # ここに買い注文のコードを入れる
 
+        flag["order"]["ATR"] = calculate_volatility(last_data)
+        flag["order"]["price"] = data["close_price"]
         flag["order"]["exist"] = True
         flag["order"]["side"] = "BUY"
-        flag["order"]["price"] = round(data["close_price"] * lot)
 
     if signal["side"] == "SELL":
         flag["records"]["log"].append(
-            "過去{0}足の最安値{1}円を、直近の安値が{2}円でブレイクしました\n".format(term, signal["price"], data["low_price"]))
+            "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
         flag["records"]["log"].append(str(data["close_price"]) + "円で売りの指値注文を出します\n")
 
         # ここに売り注文のコードを入れる
 
+        flag["order"]["ATR"] = calculate_volatility(last_data)
+        flag["order"]["price"] = data["close_price"]
         flag["order"]["exist"] = True
         flag["order"]["side"] = "SELL"
-        flag["order"]["price"] = round(data["close_price"] * lot)
 
     return flag
 
@@ -102,6 +122,7 @@ def check_order(flag):
     flag["order"]["count"] = 0
     flag["position"]["exist"] = True
     flag["position"]["side"] = flag["order"]["side"]
+    flag["position"]["ATR"] = flag["order"]["ATR"]
     flag["position"]["price"] = flag["order"]["price"]
 
     return flag
@@ -109,18 +130,21 @@ def check_order(flag):
 
 # 手仕舞いのシグナルが出たら決済の成行注文 + ドテン注文 を出す関数
 def close_position(data, last_data, flag):
+    if flag["position"]["exist"] == False:
+        return flag
+
     flag["position"]["count"] += 1
     signal = donchian(data, last_data)
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
             flag["records"]["log"].append(
-                "過去{0}足の最安値{1}円を、直近の安値が{2}円でブレイクしました\n".format(term, signal["price"], data["low_price"]))
+                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
-            records(flag, data)
+            records(flag, data, data["close_price"])
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
 
@@ -128,19 +152,20 @@ def close_position(data, last_data, flag):
 
             # ここに売り注文のコードを入れる
 
+            flag["order"]["ATR"] = calculate_volatility(last_data)
+            flag["order"]["price"] = data["close_price"]
             flag["order"]["exist"] = True
             flag["order"]["side"] = "SELL"
-            flag["order"]["price"] = round(data["close_price"] * lot)
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
             flag["records"]["log"].append(
-                "過去{0}足の最高値{1}円を、直近の高値が{2}円でブレイクしました\n".format(term, signal["price"], data["high_price"]))
+                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
-            records(flag, data)
+            records(flag, data, data["close_price"])
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
 
@@ -148,18 +173,50 @@ def close_position(data, last_data, flag):
 
             # ここに買い注文のコードを入れる
 
+            flag["order"]["ATR"] = calculate_volatility(last_data)
+            flag["order"]["price"] = data["close_price"]
             flag["order"]["exist"] = True
             flag["order"]["side"] = "BUY"
-            flag["order"]["price"] = round(data["close_price"] * lot)
+
+    return flag
+
+
+# 損切ラインにかかったら成行注文で決済する関数
+def stop_position(data, flag):
+    if flag["position"]["side"] == "BUY":
+        stop_price = flag["position"]["price"] - flag["position"]["ATR"] * stop_range
+        if data["low_price"] < stop_price:
+            flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
+            stop_price = flag["position"]["price"] - flag["position"]["ATR"] * stop_range
+            flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+
+            # 決済の成行注文コードを入れる
+
+            records(flag, data, stop_price, "STOP")
+            flag["position"]["exist"] = False
+            flag["position"]["count"] = 0
+
+    if flag["position"]["side"] == "SELL":
+        stop_price = flag["position"]["price"] + flag["position"]["ATR"] * stop_range
+        if data["high_price"] > stop_price:
+            flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
+            stop_price = flag["position"]["price"] + flag["position"]["ATR"] * stop_range
+            flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+
+            # 決済の成行注文コードを入れる
+
+            records(flag, data, stop_price, "STOP")
+            flag["position"]["exist"] = False
+            flag["position"]["count"] = 0
 
     return flag
 
 
 # 各トレードのパフォーマンスを記録する関数
-def records(flag, data):
+def records(flag, data, close_price, close_type=None):
     # 取引手数料等の計算
-    entry_price = flag["position"]["price"]
-    exit_price = round(data["close_price"] * lot)
+    entry_price = int(round(flag["position"]["price"] * lot))
+    exit_price = int(round(close_price * lot))
     trade_cost = round(exit_price * slippage)
 
     log = "スリッページ・手数料として " + str(trade_cost) + "円を考慮します\n"
@@ -169,6 +226,12 @@ def records(flag, data):
     # 手仕舞った日時と保有期間を記録
     flag["records"]["date"].append(data["close_time_dt"])
     flag["records"]["holding-periods"].append(flag["position"]["count"])
+
+    # 損切りにかかった回数をカウント
+    if close_type == "STOP":
+        flag["records"]["stop-count"].append(1)
+    else:
+        flag["records"]["stop-count"].append(0)
 
     # 値幅の計算
     buy_profit = exit_price - entry_price - trade_cost
@@ -208,9 +271,20 @@ def backtest(flag):
         "Profit": flag["records"]["profit"],
         "Side": flag["records"]["side"],
         "Rate": flag["records"]["return"],
+        "Stop": flag["records"]["stop-count"],
         "Periods": flag["records"]["holding-periods"],
         "Slippage": flag["records"]["slippage"]
     })
+
+    # 連敗回数をカウントする
+    consecutive_defeats = []
+    defeats = 0
+    for p in flag["records"]["profit"]:
+        if p < 0:
+            defeats += 1
+        else:
+            consecutive_defeats.append(defeats)
+            defeats = 0
 
     # 総損益の列を追加する
     records["Gross"] = records.Profit.cumsum()
@@ -244,6 +318,7 @@ def backtest(flag):
     print("平均リターン       :  {}％".format(round(buy_records.Rate.mean(), 2)))
     print("総損益             :  {}円".format(buy_records.Profit.sum()))
     print("平均保有期間       :  {}足分".format(round(buy_records.Periods.mean(), 1)))
+    print("損切りの回数       :  {}回".format(buy_records.Stop.sum()))
 
     print("-----------------------------------")
     print("売りエントリの成績")
@@ -254,6 +329,7 @@ def backtest(flag):
     print("平均リターン       :  {}％".format(round(sell_records.Rate.mean(), 2)))
     print("総損益             :  {}円".format(sell_records.Profit.sum()))
     print("平均保有期間       :  {}足分".format(round(sell_records.Periods.mean(), 1)))
+    print("損切りの回数       :  {}回".format(sell_records.Stop.sum()))
 
     print("-----------------------------------")
     print("総合の成績")
@@ -262,9 +338,11 @@ def backtest(flag):
     print("勝率               :  {}％".format(round(len(records[records.Profit > 0]) / len(records) * 100, 1)))
     print("平均リターン       :  {}％".format(round(records.Rate.mean(), 2)))
     print("平均保有期間       :  {}足分".format(round(records.Periods.mean(), 1)))
+    print("損切りの回数       :  {}回".format(records.Stop.sum()))
     print("")
     print("最大の勝ちトレード :  {}円".format(records.Profit.max()))
     print("最大の負けトレード :  {}円".format(records.Profit.min()))
+    print("最大連敗回数       :  {}回".format(max(consecutive_defeats)))
     print("最大ドローダウン   :  {0}円 / {1}％".format(-1 * records.Drawdown.max(),
                                              -1 * records.DrawdownRate.loc[records.Drawdown.idxmax()]))
     print("利益合計           :  {}円".format(records[records.Profit > 0].Profit.sum()))
@@ -297,7 +375,7 @@ def backtest(flag):
 
     plt.show()
 
-#oandaのapiを一度だけ取得する為に関数から出す
+# oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
 client = API(access_token=token)
 instrument = "GBP_JPY"
@@ -306,7 +384,7 @@ params = {
     "granularity": "H1"
 }
 r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-#Use csv file
+# Use csv file
 csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 
 
@@ -322,12 +400,14 @@ flag = {
         "exist": False,
         "side": "",
         "price": 0,
+        "ATR": 0,
         "count": 0
     },
     "position": {
         "exist": False,
         "side": "",
         "price": 0,
+        "ATR": 0,
         "count": 0
     },
     "records": {
@@ -335,6 +415,7 @@ flag = {
         "profit": [],
         "return": [],
         "side": [],
+        "stop-count": [],
         "holding-periods": [],
         "slippage": [],
         "log": []
@@ -342,11 +423,12 @@ flag = {
 }
 
 last_data = []
+need_term = max(buy_term, sell_term, volatility_term)
 i = 0
 while i < len(price):
 
-    # ドンチャンの判定に使う過去30足分の安値・高値データを準備する
-    if len(last_data) < term:
+    # ドンチャンの判定に使う期間分の安値・高値データを準備する
+    if len(last_data) < need_term:
         last_data.append(price[i])
         flag = log_price(price[i], flag)
         time.sleep(wait)
@@ -359,12 +441,11 @@ while i < len(price):
     if flag["order"]["exist"]:
         flag = check_order(flag)
     elif flag["position"]["exist"]:
+        flag = stop_position(data, flag)
         flag = close_position(data, last_data, flag)
     else:
         flag = entry_signal(data, last_data, flag)
 
-    # 過去データを30個に保つために先頭を削除
-    del last_data[0]
     last_data.append(data)
     i += 1
     time.sleep(wait)

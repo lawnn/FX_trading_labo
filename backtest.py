@@ -86,8 +86,8 @@ def calculate_lot(last_data, data, flag):
     lot = min(able_lot, calc_lot)
 
     flag["records"]["log"].append("現在のアカウント残高は{}円です\n".format(balance))
-    flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}BTCまでです\n".format(calc_lot))
-    flag["records"]["log"].append("証拠金から購入できる枚数は最大{}BTCまでです\n".format(able_lot))
+    flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}までです\n".format(calc_lot))
+    flag["records"]["log"].append("証拠金から購入できる枚数は最大{}までです\n".format(able_lot))
 
     return lot, stop
 
@@ -115,7 +115,7 @@ def entry_signal(data, last_data, flag):
 
         lot, stop = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}BTCの買い注文を出します\n".format(data["close_price"], lot))
+            flag["records"]["log"].append("{0}円で{1}の買い注文を出します\n".format(data["close_price"], lot))
 
             # ここに買い注文のコードを入れる
 
@@ -133,7 +133,7 @@ def entry_signal(data, last_data, flag):
 
         lot, stop = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}BTCの売り注文を出します\n".format(data["close_price"], lot))
+            flag["records"]["log"].append("{0}円で{1}の売り注文を出します\n".format(data["close_price"], lot))
 
             # ここに売り注文のコードを入れる
 
@@ -186,7 +186,7 @@ def close_position(data, last_data, flag):
 
             lot, stop = calculate_lot(last_data, data, flag)
             if lot > 0.01:
-                flag["records"]["log"].append("さらに{0}円で{1}BTCの売りの注文を入れてドテンします\n".format(data["close_price"], lot))
+                flag["records"]["log"].append("さらに{0}円で{1}の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
 
@@ -210,7 +210,7 @@ def close_position(data, last_data, flag):
 
             lot, stop = calculate_lot(last_data, data, flag)
             if lot > 0.01:
-                flag["records"]["log"].append("さらに{0}円で{1}BTCの買いの注文を入れてドテンします\n".format(data["close_price"], lot))
+                flag["records"]["log"].append("さらに{0}円で{1}の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
 

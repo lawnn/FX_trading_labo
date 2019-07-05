@@ -434,10 +434,10 @@ def backtest(flag):
 # oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
 client = API(access_token=token)
-instrument = "GBP_JPY"
+instrument = "EUR_JPY"
 params = {
     "count": 50,
-    "granularity": "H1"
+    "granularity": "H2"
 }
 r = instruments.InstrumentsCandles(instrument=instrument, params=params)
 # Use csv file

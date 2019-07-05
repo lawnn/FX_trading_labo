@@ -68,7 +68,7 @@ def print_price(data):
 def calculate_volatility(last_data):
     high_sum = sum(i["high_price"] for i in last_data[-1 * volatility_term:])
     low_sum = sum(i["low_price"] for i in last_data[-1 * volatility_term:])
-    volatility = round((high_sum - low_sum) / volatility_term)
+    volatility = (high_sum - low_sum) / volatility_term
     flag["records"]["log"].append("現在の{0}期間の平均ボラティリティは{1}円です\n".format(volatility_term, volatility))
     return volatility
 
@@ -81,8 +81,8 @@ def calculate_lot(last_data, data, flag):
     volatility = calculate_volatility(last_data)
     stop = stop_range * volatility
 
-    calc_lot = np.floor(balance * trade_risk / stop * 100) / 100
-    able_lot = np.floor(balance * leverage / data["close_price"] * 100) / 100
+    calc_lot = round(np.floor(balance * trade_risk / stop * 100) / 100, -3)
+    able_lot = round(np.floor(balance * leverage / data["close_price"] * 100) / 100, -3)
     lot = min(able_lot, calc_lot)
 
     flag["records"]["log"].append("現在のアカウント残高は{}円です\n".format(balance))

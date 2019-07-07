@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # -----設定項目
-buy_term = 25              # 買いエントリーのブレイク期間の設定
-sell_term = 25             # 売りエントリーのブレイク期間の設定
+buy_term = 40              # 買いエントリーのブレイク期間の設定
+sell_term = 15             # 売りエントリーのブレイク期間の設定
 
 judge_price = {
   "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
@@ -25,6 +25,18 @@ start_funds = 500000       # シミュレーション時の初期資金
 
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
+
+# oandaのapiを一度だけ取得する為に関数から出す
+accountID, token = exampleAuth()
+client = API(access_token=token)
+instrument = "GBP_JPY"
+params = {
+    "count": 5000,
+    "granularity": "H2"
+}
+r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+# Use csv file
+csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 
 
 # oandaのapiを使用する関数
@@ -429,19 +441,6 @@ def backtest(flag):
     plt.xticks(rotation=50)  # X軸の目盛りを50度回転
 
     plt.show()
-
-
-# oandaのapiを一度だけ取得する為に関数から出す
-accountID, token = exampleAuth()
-client = API(access_token=token)
-instrument = "EUR_JPY"
-params = {
-    "count": 50,
-    "granularity": "H2"
-}
-r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-# Use csv file
-csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 
 
 # ------------------------------

@@ -26,28 +26,30 @@ start_funds = 500000       # シミュレーション時の初期資金
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
-# oandaのapiを一度だけ取得する為に関数から出す
 accountID, token = exampleAuth()
-client = API(access_token=token)
-instrument = "GBP_JPY"
-params = {
-    "count": 5000,
-    "granularity": "H2"
-}
-r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-# Use csv file
-csv_path = 'csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv'
 
 
 # oandaのapiを使用する関数
 def get_price():
-    price = [{"close_time": client.request(r)["candles"][i]['time'],
-              "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
-              "high_price": round(float(client.request(r)["candles"][i]["mid"]['h']), 3),
-              "low_price": round(float(client.request(r)["candles"][i]["mid"]['l']), 3),
-              "close_price": round(float(client.request(r)["candles"][i]["mid"]['c']), 3)}
-             for i in range(params['count'])]
-    return price
+    instrument = "GBP_JPY"
+    params = {
+        "count": 50,
+        "granularity": "H2"
+    }
+    client = API(access_token=token)
+    r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+    if client.request(r)["candles"] is not None:
+        price = [{"close_time": client.request(r)["candles"][i]['time'],
+                  "close_time_dt": dateutil.parser.parse(client.request(r)["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
+                  "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
+                  "high_price": round(float(client.request(r)["candles"][i]["mid"]['h']), 3),
+                  "low_price": round(float(client.request(r)["candles"][i]["mid"]['l']), 3),
+                  "close_price": round(float(client.request(r)["candles"][i]["mid"]['c']), 3)}
+                 for i in range(params['count'])]
+        return price
+    else:
+        flag["records"]["log"].append("データが存在しません")
+        return None
 
 
 def get_price_from_file(path):
@@ -447,8 +449,8 @@ def backtest(flag):
 # ここからメイン処理
 # ------------------------------
 
-# price = get_price
-price = get_price_from_file(csv_path)
+price = get_price()
+# price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
 
 flag = {
     "order": {

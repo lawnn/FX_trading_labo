@@ -27,24 +27,24 @@ wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
 accountID, token = exampleAuth()
-
+instrument = "GBP_JPY"
+params = {
+    "count": 5000,
+    "granularity": "H2"
+}
 
 # oandaのapiを使用する関数
 def get_price():
-    instrument = "GBP_JPY"
-    params = {
-        "count": 50,
-        "granularity": "H2"
-    }
     client = API(access_token=token)
     r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-    if client.request(r)["candles"] is not None:
-        price = [{"close_time": client.request(r)["candles"][i]['time'],
-                  "close_time_dt": dateutil.parser.parse(client.request(r)["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
-                  "open_price": round(float(client.request(r)["candles"][i]["mid"]['o']), 3),
-                  "high_price": round(float(client.request(r)["candles"][i]["mid"]['h']), 3),
-                  "low_price": round(float(client.request(r)["candles"][i]["mid"]['l']), 3),
-                  "close_price": round(float(client.request(r)["candles"][i]["mid"]['c']), 3)}
+    data = client.request(r)
+    if data["candles"] is not None:
+        price = [{"close_time": data["candles"][i]['time'],
+                  "close_time_dt": dateutil.parser.parse(data["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
+                  "open_price": round(float(data["candles"][i]["mid"]['o']), 3),
+                  "high_price": round(float(data["candles"][i]["mid"]['h']), 3),
+                  "low_price": round(float(data["candles"][i]["mid"]['l']), 3),
+                  "close_price": round(float(data["candles"][i]["mid"]['c']), 3)}
                  for i in range(params['count'])]
         return price
     else:
@@ -449,8 +449,8 @@ def backtest(flag):
 # ここからメイン処理
 # ------------------------------
 
-price = get_price()
-# price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
+# price = get_price()
+price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
 
 flag = {
     "order": {

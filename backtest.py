@@ -448,7 +448,7 @@ def backtest(flag):
 # ------------------------------
 # ここからメイン処理
 # ------------------------------
-
+pd.plotting.register_matplotlib_converters()
 # price = get_price()
 price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
 

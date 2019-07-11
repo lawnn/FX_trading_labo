@@ -23,6 +23,9 @@ trade_risk = 0.05          # 1トレードあたり口座の何％まで損失�
 leverage = 5               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
 
+entry_times = 1            # 何回に分けて追加ポジションを取るか
+entry_range = 0.5          # 何レンジごとに追加ポジションを取るか
+
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
@@ -87,24 +90,131 @@ def calculate_volatility(last_data):
     return volatility
 
 
+# -------------資金管理の関数--------------
+
+
 # 注文ロットを計算する関数
 def calculate_lot(last_data, data, flag):
-    lot = 0
+    # 口座残高を取得する
     balance = flag["records"]["funds"]
 
-    volatility = calculate_volatility(last_data)
-    stop = stop_range * volatility
+    # 最初のエントリーの場合
+    if flag["add-position"]["count"] == 0:
 
-    calc_lot = round(np.floor(balance * trade_risk / stop * 100) / 100, -3)
-    able_lot = round(np.floor(balance * leverage / data["close_price"] * 100) / 100, -3)
-    lot = min(able_lot, calc_lot)
+        # １回の注文単位（ロット数）と、追加ポジの基準レンジを計算する
+        volatility = calculate_volatility(last_data)
+        stop = stop_range * volatility
+        calc_lot = round(np.floor(balance * trade_risk / stop * 100) / 100, -3)
 
-    flag["records"]["log"].append("現在のアカウント残高は{}円です\n".format(balance))
-    flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}までです\n".format(calc_lot))
-    flag["records"]["log"].append("証拠金から購入できる枚数は最大{}までです\n".format(able_lot))
+        flag["add-position"]["unit-size"] = np.floor(calc_lot / entry_times * 100) / 100
+        flag["add-position"]["unit-range"] = round(volatility * entry_range)
+        flag["add-position"]["stop"] = stop
 
-    return lot, stop
+        flag["records"]["log"].append("\n現在のアカウント残高は{}円です\n".format(balance))
+        flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}BTCまでです\n".format(calc_lot))
+        flag["records"]["log"].append("{0}回に分けて{1}BTCずつ注文します\n".format(entry_times, flag["add-position"]["unit-size"]))
 
+    # ２回目以降のエントリーの場合
+    else:
+        balance = round(balance - flag["position"]["price"] * flag["position"]["lot"] / leverage)
+
+    # ストップ幅には、最初のエントリー時に計算したボラティリティを使う
+    stop = flag["add-position"]["stop"]
+
+    # 実際に購入可能な枚数を計算する
+    able_lot = np.floor(balance * leverage / data["close_price"] * 100) / 100
+    lot = min(able_lot, flag["add-position"]["unit-size"])
+
+    flag["records"]["log"].append("証拠金から購入できる枚数は最大{}BTCまでです\n".format(able_lot))
+    return lot, stop, flag
+
+
+# 複数回に分けて追加ポジションを取る関数
+def add_position(data, flag):
+    # ポジションがない場合は何もしない
+    if flag["position"]["exist"] == False:
+        return flag
+
+    # 最初（１回目）のエントリー価格を記録
+    if flag["add-position"]["count"] == 0:
+        flag["add-position"]["first-entry-price"] = flag["position"]["price"]
+        flag["add-position"]["last-entry-price"] = flag["position"]["price"]
+        flag["add-position"]["count"] += 1
+
+    while True:
+
+        # 以下の場合は、追加ポジションを取らない
+        if flag["add-position"]["count"] >= entry_times:
+            return flag
+
+        # この関数の中で使う変数を用意
+        first_entry_price = flag["add-position"]["first-entry-price"]
+        last_entry_price = flag["add-position"]["last-entry-price"]
+        unit_range = flag["add-position"]["unit-range"]
+        current_price = data["close_price"]
+
+        # 価格がエントリー方向に基準レンジ分だけ進んだか判定する
+        should_add_position = False
+        if flag["position"]["side"] == "BUY" and (current_price - last_entry_price) > unit_range:
+            should_add_position = True
+        elif flag["position"]["side"] == "SELL" and (last_entry_price - current_price) > unit_range:
+            should_add_position = True
+        else:
+            break
+
+        # 基準レンジ分進んでいれば追加注文を出す
+        if should_add_position == True:
+            flag["records"]["log"].append(
+                "\n前回のエントリー価格{0}円からブレイクアウトの方向に{1}ATR（{2}円）以上動きました\n".format(last_entry_price, entry_range,
+                                                                            round(unit_range)))
+            flag["records"]["log"].append(
+                "{0}/{1}回目の追加注文を出します\n".format(flag["add-position"]["count"] + 1, entry_times))
+
+            # 注文サイズを計算
+            lot, stop, flag = calculate_lot(last_data, data, flag)
+            if lot < 0.01:
+                flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+                return flag
+
+            # 追加注文を出す
+            if flag["position"]["side"] == "BUY":
+                entry_price = first_entry_price + (flag["add-position"]["count"] * unit_range)
+                # entry_price = round((1 + slippage) * entry_price)
+
+                flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}BTCの買い注文を出します\n".format(entry_price, lot))
+
+            # ここに買い注文のコードを入れる
+
+            if flag["position"]["side"] == "SELL":
+                entry_price = first_entry_price - (flag["add-position"]["count"] * unit_range)
+                # entry_price = round((1 - slippage) * entry_price)
+
+                flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}BTCの売り注文を出します\n".format(entry_price, lot))
+
+            # ここに売り注文のコードを入れる
+
+            # ポジション全体の情報を更新する
+            flag["position"]["stop"] = stop
+            flag["position"]["price"] = int(round(
+                (flag["position"]["price"] * flag["position"]["lot"] + entry_price * lot) / (
+                            flag["position"]["lot"] + lot)))
+            flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
+
+            if flag["position"]["side"] == "BUY":
+                flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] - stop))
+            elif flag["position"]["side"] == "SELL":
+                flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
+
+            flag["records"]["log"].append("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
+            flag["records"]["log"].append("現在のポジションサイズは{}BTCです\n\n".format(flag["position"]["lot"]))
+
+            flag["add-position"]["count"] += 1
+            flag["add-position"]["last-entry-price"] = entry_price
+
+    return flag
+
+
+# -------------売買ロジックの部分の関数--------------
 
 # ドンチャンブレイクを判定する関数
 def donchian(data, last_data):
@@ -127,17 +237,17 @@ def entry_signal(data, last_data, flag):
         flag["records"]["log"].append(
             "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
 
-        lot, stop = calculate_lot(last_data, data, flag)
+        lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}の買い注文を出します\n".format(data["close_price"], lot))
+            flag["records"]["log"].append("{0}円で{1}BTCの買い注文を出します\n".format(data["close_price"], lot))
 
             # ここに買い注文のコードを入れる
 
             flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] - stop))
-            flag["order"]["lot"], flag["order"]["stop"] = lot, stop
-            flag["order"]["exist"] = True
-            flag["order"]["side"] = "BUY"
-            flag["order"]["price"] = data["close_price"]
+            flag["position"]["lot"], flag["position"]["stop"] = lot, stop
+            flag["position"]["exist"] = True
+            flag["position"]["side"] = "BUY"
+            flag["position"]["price"] = data["close_price"]
         else:
             flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
 
@@ -145,35 +255,19 @@ def entry_signal(data, last_data, flag):
         flag["records"]["log"].append(
             "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
 
-        lot, stop = calculate_lot(last_data, data, flag)
+        lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}の売り注文を出します\n".format(data["close_price"], lot))
+            flag["records"]["log"].append("{0}円で{1}BTCの売り注文を出します\n".format(data["close_price"], lot))
 
             # ここに売り注文のコードを入れる
 
             flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] + stop))
-            flag["order"]["lot"], flag["order"]["stop"] = lot, stop
-            flag["order"]["exist"] = True
-            flag["order"]["side"] = "SELL"
-            flag["order"]["price"] = data["close_price"]
+            flag["position"]["lot"], flag["position"]["stop"] = lot, stop
+            flag["position"]["exist"] = True
+            flag["position"]["side"] = "SELL"
+            flag["position"]["price"] = data["close_price"]
         else:
             flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
-
-    return flag
-
-
-# サーバーに出した注文が約定したか確認する関数
-def check_order(flag):
-    # 注文状況を確認して通っていたら以下を実行
-    # 一定時間で注文が通っていなければキャンセルする
-
-    flag["order"]["exist"] = False
-    flag["order"]["count"] = 0
-    flag["position"]["exist"] = True
-    flag["position"]["side"] = flag["order"]["side"]
-    flag["position"]["stop"] = flag["order"]["stop"]
-    flag["position"]["price"] = flag["order"]["price"]
-    flag["position"]["lot"] = flag["order"]["lot"]
 
     return flag
 
@@ -197,18 +291,19 @@ def close_position(data, last_data, flag):
             records(flag, data, data["close_price"])
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
+            flag["add-position"]["count"] = 0
 
-            lot, stop = calculate_lot(last_data, data, flag)
+            lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot > 0.01:
-                flag["records"]["log"].append("さらに{0}円で{1}の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
+                flag["records"]["log"].append("\n{0}円で{1}BTCの売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
 
                 flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] + stop))
-                flag["order"]["lot"], flag["order"]["stop"] = lot, stop
-                flag["order"]["exist"] = True
-                flag["order"]["side"] = "SELL"
-                flag["order"]["price"] = data["close_price"]
+                flag["position"]["lot"], flag["position"]["stop"] = lot, stop
+                flag["position"]["exist"] = True
+                flag["position"]["side"] = "SELL"
+                flag["position"]["price"] = data["close_price"]
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
@@ -221,18 +316,19 @@ def close_position(data, last_data, flag):
             records(flag, data, data["close_price"])
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
+            flag["add-position"]["count"] = 0
 
-            lot, stop = calculate_lot(last_data, data, flag)
+            lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot > 0.01:
-                flag["records"]["log"].append("さらに{0}円で{1}の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
+                flag["records"]["log"].append("\n{0}円で{1}BTCの買いの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
 
                 flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] - stop))
-                flag["order"]["lot"], flag["order"]["stop"] = lot, stop
-                flag["order"]["exist"] = True
-                flag["order"]["side"] = "BUY"
-                flag["order"]["price"] = data["close_price"]
+                flag["position"]["lot"], flag["position"]["stop"] = lot, stop
+                flag["position"]["exist"] = True
+                flag["position"]["side"] = "BUY"
+                flag["position"]["price"] = data["close_price"]
 
     return flag
 
@@ -251,6 +347,7 @@ def stop_position(data, flag):
             records(flag, data, stop_price, "STOP")
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
+            flag["add-position"]["count"] = 0
 
     if flag["position"]["side"] == "SELL":
         stop_price = flag["position"]["price"] + flag["position"]["stop"]
@@ -264,6 +361,7 @@ def stop_position(data, flag):
             records(flag, data, stop_price, "STOP")
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
+            flag["add-position"]["count"] = 0
 
     return flag
 
@@ -445,27 +543,30 @@ def backtest(flag):
     plt.show()
 
 
-# ------------------------------
-# ここからメイン処理
-# ------------------------------
+# ------------ここからメイン処理--------------
+
+# 価格チャートを取得
 pd.plotting.register_matplotlib_converters()
 # price = get_price()
 price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
 
 flag = {
-    "order": {
-        "exist": False,
-        "side": "",
-        "price": 0,
-        "ATR": 0,
-        "count": 0
-    },
     "position": {
         "exist": False,
         "side": "",
         "price": 0,
+        "stop": 0,
         "ATR": 0,
+        "lot": 0,
         "count": 0
+    },
+    "add-position": {
+        "count": 0,
+        "first-entry-price": 0,
+        "last-entry-price": 0,
+        "unit-range": 0,
+        "unit-size": 0,
+        "stop": 0
     },
     "records": {
         "date": [],
@@ -484,6 +585,7 @@ last_data = []
 need_term = max(buy_term, sell_term, volatility_term)
 i = 0
 while i < len(price):
+    # while i < 500:
 
     # ドンチャンの判定に使う期間分の安値・高値データを準備する
     if len(last_data) < need_term:
@@ -496,11 +598,13 @@ while i < len(price):
     data = price[i]
     flag = log_price(data, flag)
 
-    if flag["order"]["exist"]:
-        flag = check_order(flag)
-    elif flag["position"]["exist"]:
+    # ポジションがある場合
+    if flag["position"]["exist"]:
         flag = stop_position(data, flag)
         flag = close_position(data, last_data, flag)
+        flag = add_position(data, flag)
+
+    # ポジションがない場合
     else:
         flag = entry_signal(data, last_data, flag)
 

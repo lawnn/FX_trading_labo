@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # -----設定項目
-buy_term = 40              # 買いエントリーのブレイク期間の設定
-sell_term = 15             # 売りエントリーのブレイク期間の設定
+buy_term = 45              # 買いエントリーのブレイク期間の設定
+sell_term = 45             # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "close_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
+  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 volatility_term = 30       # 平均ボラティリティの計算に使う期間
@@ -33,11 +33,12 @@ wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
 accountID, token = exampleAuth()
-instrument = "GBP_JPY"
+instrument = "EUR_JPY"
 params = {
     "count": 5000,
-    "granularity": "H2"
+    "granularity": "H1"
 }
+
 
 # oandaのapiを使用する関数
 def get_price():

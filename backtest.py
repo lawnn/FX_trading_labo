@@ -26,6 +26,9 @@ start_funds = 500000       # シミュレーション時の初期資金
 entry_times = 1            # 何回に分けて追加ポジションを取るか
 entry_range = 0.5          # 何レンジごとに追加ポジションを取るか
 
+trail_ratio = 0.5               # 価格が１レンジ動くたびに何レンジ損切り位置をトレイルするか
+trail_until_breakeven = True    # 損益ゼロの位置までしかトレイルしない
+
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
@@ -109,6 +112,7 @@ def calculate_lot(last_data, data, flag):
         flag["add-position"]["unit-size"] = np.floor(calc_lot / entry_times * 100) / 100
         flag["add-position"]["unit-range"] = round(volatility * entry_range)
         flag["add-position"]["stop"] = stop
+        flag["position"]["ATR"] = volatility
 
         flag["records"]["log"].append("\n現在のアカウント残高は{}円です\n".format(balance))
         flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}BTCまでです\n".format(calc_lot))
@@ -174,6 +178,7 @@ def add_position(data, flag):
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot < 0.01:
                 flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+                flag["add-position"]["count"] += 1
                 return flag
 
             # 追加注文を出す
@@ -210,6 +215,48 @@ def add_position(data, flag):
 
             flag["add-position"]["count"] += 1
             flag["add-position"]["last-entry-price"] = entry_price
+
+    return flag
+
+
+# トレイリングストップの関数
+def trail_stop(data, flag):
+    # まだ追加ポジションの取得中であれば何もしない
+    if flag["add-position"]["count"] < entry_times:
+        return flag
+
+    last_stop = flag["position"]["stop"]  # 前回のストップ幅
+    first_stop = flag["position"]["ATR"] * stop_range  # 最初のストップ幅
+
+    # エントリー価格からいくら離れたか計算する
+    if flag["position"]["side"] == "BUY" and data["close_price"] > flag["position"]["price"]:
+        moved_range = round((data["close_price"] - flag["position"]["price"]), 3)
+    elif flag["position"]["side"] == "SELL" and data["close_price"] < flag["position"]["price"]:
+        moved_range = round((flag["position"]["price"] - data["close_price"]), 3)
+    else:
+        moved_range = 0
+
+    # 動いたレンジ幅に合わせてストップ位置を更新する
+    if moved_range > flag["position"]["ATR"]:
+        number = float(np.floor(moved_range / flag["position"]["ATR"]))
+        flag["position"]["stop"] = round(first_stop - (number * flag["position"]["ATR"] * trail_ratio))
+
+    # 損益０ラインまでしかトレイルしない場合
+    if trail_until_breakeven and flag["position"]["stop"] < 0:
+        flag["position"]["stop"] = 0
+
+    # ストップがエントリー方向と逆に動いたら更新しない
+    if flag["position"]["stop"] > last_stop:
+        flag["position"]["stop"] = last_stop
+
+    # ログ出力
+    if flag["position"]["stop"] != last_stop:
+        if flag["position"]["side"] == "BUY":
+            flag["records"]["log"].append(
+                "トレイリングストップの発動：ストップ位置を{}円に動かします\n".format(round(flag["position"]["price"] - flag["position"]["stop"])))
+        else:
+            flag["records"]["log"].append(
+                "トレイリングストップの発動：ストップ位置を{}円に動かします\n".format(round(flag["position"]["price"] + flag["position"]["stop"])))
 
     return flag
 
@@ -335,6 +382,9 @@ def close_position(data, last_data, flag):
 
 # 損切ラインにかかったら成行注文で決済する関数
 def stop_position(data, flag):
+    # トレイリングストップを実行
+    flag = trail_stop(data, flag)
+
     if flag["position"]["side"] == "BUY":
         stop_price = flag["position"]["price"] - flag["position"]["stop"]
         if data["low_price"] < stop_price:
@@ -580,6 +630,12 @@ flag = {
         "log": []
     }
 }
+
+# トレイリングの比率に０～１以上の数値を設定できないようにする
+if trail_ratio > 1:
+    trail_ratio = 1
+elif trail_ratio < 0:
+    trail_ratio = 0
 
 last_data = []
 need_term = max(buy_term, sell_term, volatility_term)

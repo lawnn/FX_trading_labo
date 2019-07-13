@@ -28,12 +28,12 @@ start_funds = 500000       # シミュレーション時の初期資金
 entry_times = 2            # 何回に分けて追加ポジションを取るか
 entry_range = 1            # 何レンジごとに追加ポジションを取るか
 
-trailing_config = "ON"     # ONで有効 OFFで無効
+stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
 stop_AF = 0.02             # 加速係数
 stop_AF_add = 0.02         # 加速係数を増やす度合
 stop_AF_max = 0.2          # 加速係数の上限
 
-filter_VER = "B"           # フィルター設定／OFFで無効
+filter_VER = "OFF"           # フィルター設定／OFFで無効
 MA_term = 200              # トレンドフィルターに使う移動平均線の期間
 
 slippage = 0.0002          # 手数料・スリッページ
@@ -152,7 +152,7 @@ def entry_signal(data, last_data, flag):
 # 損切ラインにかかったら成行注文で決済する関数
 def stop_position(data, flag):
     # トレイリングストップを実行
-    if trailing_config == "ON":
+    if stop_config == "TRAILING":
         flag = trail_stop(data, flag)
 
     if flag["position"]["side"] == "BUY":
@@ -711,7 +711,6 @@ last_data = []
 need_term = max(buy_term, sell_term, volatility_term)
 i = 0
 while i < len(price):
-    # while i < 500:
 
     # ドンチャンの判定に使う期間分の安値・高値データを準備する
     if len(last_data) < need_term:
@@ -726,9 +725,17 @@ while i < len(price):
 
     # ポジションがある場合
     if flag["position"]["exist"]:
-        flag = stop_position(data, flag)
-        flag = close_position(data, last_data, flag)
-        flag = add_position(data, flag)
+
+        # 終値がポジションと同じ方向に動いた場合
+        # 買いなら（安値⇒高値）の順、売りなら（高値⇒安値）の順に適用
+
+        if (flag["position"]["side"] == "BUY" and data["open_price"] < data["close_price"]) \
+                or (flag["position"]["side"] == "SELL" and data["open_price"] > data["close_price"]):
+            if stop_config != "OFF":
+                flag = stop_position(data, flag)
+            flag = close_position(data, last_data, flag)
+            flag = add_position(data, flag)
+            flag = trail_stop(data, flag)
 
     # ポジションがない場合
     else:

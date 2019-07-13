@@ -30,6 +30,9 @@ stop_AF = 0.02             # 加速係数
 stop_AF_add = 0.02         # 加速係数を増やす度合
 stop_AF_max = 0.2          # 加速係数の上限
 
+filter_VER = "B"           # フィルター設定／OFFで無効
+MA_term = 200                # トレンドフィルターに使う移動平均線の期間
+
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
 
@@ -282,6 +285,11 @@ def entry_signal(data, last_data, flag):
         flag["records"]["log"].append(
             "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
 
+        # フィルター条件を確認
+        if filter(signal) == False:
+            flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            return flag
+
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
             flag["records"]["log"].append("{0}円で{1}BTCの買い注文を出します\n".format(data["close_price"], lot))
@@ -299,6 +307,11 @@ def entry_signal(data, last_data, flag):
     if signal["side"] == "SELL":
         flag["records"]["log"].append(
             "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+
+        # フィルター条件を確認
+        if filter(signal) == False:
+            flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
@@ -340,6 +353,11 @@ def close_position(data, last_data, flag):
             flag["position"]["stop-EP"] = 0
             flag["add-position"]["count"] = 0
 
+            # ドテン注文の箇所
+            if filter(signal) == False:
+                flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                return flag
+
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot > 0.01:
                 flag["records"]["log"].append("\n{0}円で{1}BTCの売りの注文を入れてドテンします\n".format(data["close_price"], lot))
@@ -364,6 +382,11 @@ def close_position(data, last_data, flag):
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
             flag["add-position"]["count"] = 0
+
+            # ドテン注文の箇所
+            if filter(signal) == False:
+                flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot > 0.01:
@@ -415,6 +438,40 @@ def stop_position(data, flag):
 
     return flag
 
+
+# -------------トレンドフィルターの関数--------------
+
+
+# トレンドフィルターの関数
+def filter(signal):
+    if filter_VER == "OFF":
+        return True
+
+    if filter_VER == "A":
+        if len(last_data) < MA_term:
+            return True
+        if data["settled"]["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
+            return True
+        if data["settled"]["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
+            return True
+
+    if filter_VER == "B":
+        if len(last_data) < MA_term:
+            return True
+        if calculate_MA(MA_term) > calculate_MA(MA_term, -1) and signal["side"] == "BUY":
+            return True
+        if calculate_MA(MA_term) < calculate_MA(MA_term, -1) and signal["side"] == "SELL":
+            return True
+    return False
+
+
+# 単純移動平均を計算する関数
+def calculate_MA(value, before=None):
+    if before is None:
+        MA = sum(i["close_price"] for i in last_data[-1 * value:]) / value
+    else:
+        MA = sum(i["close_price"] for i in last_data[-1 * value + before: before]) / value
+    return round(MA)
 
 # ------------バックテストの部分の関数--------------
 

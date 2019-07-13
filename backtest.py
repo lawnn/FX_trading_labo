@@ -26,8 +26,9 @@ start_funds = 500000       # シミュレーション時の初期資金
 entry_times = 1            # 何回に分けて追加ポジションを取るか
 entry_range = 0.5          # 何レンジごとに追加ポジションを取るか
 
-trail_ratio = 0.5               # 価格が１レンジ動くたびに何レンジ損切り位置をトレイルするか
-trail_until_breakeven = True    # 損益ゼロの位置までしかトレイルしない
+stop_AF = 0.02             # 加速係数
+stop_AF_add = 0.02         # 加速係数を増やす度合
+stop_AF_max = 0.2          # 加速係数の上限
 
 wait = 0                   # ループの待機時間
 slippage = 0.0002          # 手数料・スリッページ
@@ -222,42 +223,38 @@ def add_position(data, flag):
 
 # トレイリングストップの関数
 def trail_stop(data, flag):
-    # まだ追加ポジションの取得中であれば何もしない
+    # まだ追加ポジション（増し玉）の取得中であれば何もしない
     if flag["add-position"]["count"] < entry_times:
         return flag
 
-    last_stop = flag["position"]["stop"]  # 前回のストップ幅
-    first_stop = flag["position"]["ATR"] * stop_range  # 最初のストップ幅
+    # 高値／安値がエントリー価格からいくら離れたか計算
+    if flag["position"]["side"] == "BUY":
+        moved_range = round(data["high_price"] - flag["position"]["price"], 3)
+    if flag["position"]["side"] == "SELL":
+        moved_range = round(flag["position"]["price"] - data["low_price"], 3)
 
-    # エントリー価格からいくら離れたか計算する
-    if flag["position"]["side"] == "BUY" and data["close_price"] > flag["position"]["price"]:
-        moved_range = round((data["close_price"] - flag["position"]["price"]), 3)
-    elif flag["position"]["side"] == "SELL" and data["close_price"] < flag["position"]["price"]:
-        moved_range = round((flag["position"]["price"] - data["close_price"]), 3)
+    # 最高値・最安値を更新したか調べる
+    if moved_range < 0 or flag["position"]["stop-EP"] >= moved_range:
+        return flag
     else:
-        moved_range = 0
+        flag["position"]["stop-EP"] = moved_range
 
-    # 動いたレンジ幅に合わせてストップ位置を更新する
-    if moved_range > flag["position"]["ATR"]:
-        number = float(np.floor(moved_range / flag["position"]["ATR"]))
-        flag["position"]["stop"] = round(first_stop - (number * flag["position"]["ATR"] * trail_ratio))
+    # 加速係数に応じて損切りラインを動かす
+    flag["position"]["stop"] = round(
+        flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"])
 
-    # 損益０ラインまでしかトレイルしない場合
-    if trail_until_breakeven and flag["position"]["stop"] < 0:
-        flag["position"]["stop"] = 0
+    # 加速係数を更新する
+    flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 2)
+    if flag["position"]["stop-AF"] >= stop_AF_max:
+        flag["position"]["stop-AF"] = stop_AF_max
 
-    # ストップがエントリー方向と逆に動いたら更新しない
-    if flag["position"]["stop"] > last_stop:
-        flag["position"]["stop"] = last_stop
-
-    # ログ出力
-    if flag["position"]["stop"] != last_stop:
-        if flag["position"]["side"] == "BUY":
-            flag["records"]["log"].append(
-                "トレイリングストップの発動：ストップ位置を{}円に動かします\n".format(round(flag["position"]["price"] - flag["position"]["stop"])))
-        else:
-            flag["records"]["log"].append(
-                "トレイリングストップの発動：ストップ位置を{}円に動かします\n".format(round(flag["position"]["price"] + flag["position"]["stop"])))
+    # ログを出力する
+    if flag["position"]["side"] == "BUY":
+        flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
+            round(flag["position"]["price"] - flag["position"]["stop"]), flag["position"]["stop-AF"]))
+    else:
+        flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
+            round(flag["position"]["price"] + flag["position"]["stop"]), flag["position"]["stop-AF"]))
 
     return flag
 
@@ -339,6 +336,8 @@ def close_position(data, last_data, flag):
             records(flag, data, data["close_price"])
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
+            flag["position"]["stop-AF"] = stop_AF
+            flag["position"]["stop-EP"] = 0
             flag["add-position"]["count"] = 0
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
@@ -607,6 +606,8 @@ flag = {
         "side": "",
         "price": 0,
         "stop": 0,
+        "stop-AF": stop_AF,
+        "stop-EP": 0,
         "ATR": 0,
         "lot": 0,
         "count": 0
@@ -632,11 +633,6 @@ flag = {
     }
 }
 
-# トレイリングの比率に０～１以上の数値を設定できないようにする
-if trail_ratio > 1:
-    trail_ratio = 1
-elif trail_ratio < 0:
-    trail_ratio = 0
 
 last_data = []
 need_term = max(buy_term, sell_term, volatility_term)

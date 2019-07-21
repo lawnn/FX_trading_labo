@@ -161,7 +161,7 @@ def stop_position(data, flag):
         stop_price = flag["position"]["price"] - flag["position"]["stop"]
         if data["low_price"] < stop_price:
             flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
-            stop_price = flag["position"]["price"] - flag["position"]["ATR"] * stop_range
+            stop_price = round(stop_price - 2 * calculate_volatility(last_data) / (chart_sec / 60))
             flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
@@ -177,7 +177,7 @@ def stop_position(data, flag):
         stop_price = flag["position"]["price"] + flag["position"]["stop"]
         if data["high_price"] > stop_price:
             flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
-            stop_price = flag["position"]["price"] - flag["position"]["ATR"] * stop_range
+            stop_price = round(stop_price + 2 * calculate_volatility(last_data) / (chart_sec / 60))
             flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる

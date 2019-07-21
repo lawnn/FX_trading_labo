@@ -2,85 +2,46 @@ from auth import exampleAuth
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import dateutil.parser
-from datetime import datetime
 import time
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 
 # --------設定項目--------
-
-chart_sec = 3600  # １時間足を使用
-buy_term = 30  # 買いエントリーのブレイク期間の設定
-sell_term = 30  # 売りエントリーのブレイク期間の設定
-
-judge_price = {
-    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
-    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
-}
+# バックテストのパラメーター設定
+# ---------------------------------------------------------------------------------------------
+granularity_list = ['H1']  # テストに使う時間軸
+buy_term_list = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55]  # テストに使う上値ブレイクアウトの期間
+sell_term_list = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55]  # テストに使う下値ブレイクアウトの期間
+volatility_term_list = [3, 5, 7]            # 平均ボラティリティの計算に使う期間
+entry_times_list = [2, 4]  # 何回に分けて追加ポジションを取るか
+entry_range_list = [0.5, 1]  # 何レンジごとに追加ポジションを取るか
+filter_VER_list = ["OFF", "A", "B"]  # OFFで無効
+MA_term_list = [20, 75, 100, 144, 200]  # トレンドフィルターに使う移動平均線の期間
+judge_price_list = [
+    {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
+    {"BUY": "high_price", "SELL": "low_price"}      # ブレイクアウト判定に高値・安値を使用
+]
+# ---------------------------------------------------------------------------------------------
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1BTC固定 / adjustable なら可変ロット
 
-volatility_term = 5  # 平均ボラティリティの計算に使う期間
 stop_range = 2  # 何レンジ幅にストップを入れるか
-trade_risk = 0.03  # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 3  # レバレッジ倍率の設定
+trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 5  # レバレッジ倍率の設定
 start_funds = 500000  # シミュレーション時の初期資金
-
-entry_times = 4  # 何回に分けて追加ポジションを取るか
-entry_range = 0.5  # 何レンジごとに追加ポジションを取るか
 
 stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
 stop_AF = 0.02  # 加速係数
 stop_AF_add = 0.02  # 加速係数を増やす度合
 stop_AF_max = 0.2  # 加速係数の上限
 
-filter_VER = "B"  # OFFで無効
-MA_term = 100  # トレンドフィルターに使う移動平均線の期間
-
 wait = 0  # ループの待機時間
 slippage = 0.001  # 手数料・スリッページ
 
 accountID, token = exampleAuth()
 instrument = "EUR_JPY"
-params = {
-    "count": 5000,
-    "granularity": "H1"
-}
-
-
-flag = {
-    "position": {
-        "exist": False,
-        "side": "",
-        "price": 0,
-        "stop": 0,
-        "stop-AF": stop_AF,
-        "stop-EP": 0,
-        "ATR": 0,
-        "lot": 0,
-        "count": 0
-    },
-    "add-position": {
-        "count": 0,
-        "first-entry-price": 0,
-        "last-entry-price": 0,
-        "unit-range": 0,
-        "unit-size": 0,
-        "stop": 0
-    },
-    "records": {
-        "date": [],
-        "profit": [],
-        "return": [],
-        "side": [],
-        "stop-count": [],
-        "funds": start_funds,
-        "holding-periods": [],
-        "slippage": [],
-        "log": []
-    }
-}
+params = {"count": 5000}
 
 
 # -------------売買ロジックの部分の関数--------------
@@ -616,15 +577,15 @@ def backtest(flag):
         "Slippage": flag["records"]["slippage"]
     })
 
-    # 連敗回数をカウントする
-    consecutive_defeats = []
-    defeats = 0
-    for p in flag["records"]["profit"]:
-        if p < 0:
-            defeats += 1
-        else:
-            consecutive_defeats.append(defeats)
-            defeats = 0
+    # # 連敗回数をカウントする
+    # consecutive_defeats = []
+    # defeats = 0
+    # for p in flag["records"]["profit"]:
+    #     if p < 0:
+    #         defeats += 1
+    #     else:
+    #         consecutive_defeats.append(defeats)
+    #         defeats = 0
 
     # テスト日数を集計
     # time_period = datetime.fromtimestamp(last_data[-1]["close_time_dt"]) - datetime.fromtimestamp(
@@ -641,44 +602,44 @@ def backtest(flag):
     records["Drawdown"] = records.Funds.cummax().subtract(records.Funds)
     records["DrawdownRate"] = round(records.Drawdown / records.Funds.cummax() * 100, 1)
 
-    # 買いエントリーと売りエントリーだけをそれぞれ抽出する
-    buy_records = records[records.Side.isin(["BUY"])]
-    sell_records = records[records.Side.isin(["SELL"])]
+    # # 買いエントリーと売りエントリーだけをそれぞれ抽出する
+    # buy_records = records[records.Side.isin(["BUY"])]
+    # sell_records = records[records.Side.isin(["SELL"])]
+    #
+    # # 月別のデータを集計する
+    # records["月別集計"] = pd.to_datetime(records.Date.apply(lambda x: x.strftime('%Y/%m')))
+    # grouped = records.groupby("月別集計")
+    #
+    # month_records = pd.DataFrame({
+    #     "Number": grouped.Profit.count(),
+    #     "Gross": grouped.Profit.sum(),
+    #     "Funds": grouped.Funds.last(),
+    #     "Rate": round(grouped.Rate.mean(), 2),
+    #     "Drawdown": grouped.Drawdown.max(),
+    #     "Periods": grouped.Periods.mean()
+    # })
 
-    # 月別のデータを集計する
-    records["月別集計"] = pd.to_datetime(records.Date.apply(lambda x: x.strftime('%Y/%m')))
-    grouped = records.groupby("月別集計")
-
-    month_records = pd.DataFrame({
-        "Number": grouped.Profit.count(),
-        "Gross": grouped.Profit.sum(),
-        "Funds": grouped.Funds.last(),
-        "Rate": round(grouped.Rate.mean(), 2),
-        "Drawdown": grouped.Drawdown.max(),
-        "Periods": grouped.Periods.mean()
-    })
-
-    print("バックテストの結果")
-    print("-----------------------------------")
-    print("買いエントリの成績")
-    print("-----------------------------------")
-    print("トレード回数       :  {}回".format(len(buy_records)))
-    print("勝率               :  {}％".format(round(len(buy_records[buy_records.Profit > 0]) / len(buy_records) * 100, 1)))
-    print("平均リターン       :  {}％".format(round(buy_records.Rate.mean(), 2)))
-    print("総損益             :  {}円".format(buy_records.Profit.sum()))
-    print("平均保有期間       :  {}足分".format(round(buy_records.Periods.mean(), 1)))
-    print("損切りの回数       :  {}回".format(buy_records.Stop.sum()))
-
-    print("-----------------------------------")
-    print("売りエントリの成績")
-    print("-----------------------------------")
-    print("トレード回数       :  {}回".format(len(sell_records)))
-    print("勝率               :  {}％".format(
-        round(len(sell_records[sell_records.Profit > 0]) / len(sell_records) * 100, 1)))
-    print("平均リターン       :  {}％".format(round(sell_records.Rate.mean(), 2)))
-    print("総損益             :  {}円".format(sell_records.Profit.sum()))
-    print("平均保有期間       :  {}足分".format(round(sell_records.Periods.mean(), 1)))
-    print("損切りの回数       :  {}回".format(sell_records.Stop.sum()))
+    # print("バックテストの結果")
+    # print("-----------------------------------")
+    # print("買いエントリの成績")
+    # print("-----------------------------------")
+    # print("トレード回数       :  {}回".format(len(buy_records)))
+    # print("勝率               :  {}％".format(round(len(buy_records[buy_records.Profit > 0]) / len(buy_records) * 100, 1)))
+    # print("平均リターン       :  {}％".format(round(buy_records.Rate.mean(), 2)))
+    # print("総損益             :  {}円".format(buy_records.Profit.sum()))
+    # print("平均保有期間       :  {}足分".format(round(buy_records.Periods.mean(), 1)))
+    # print("損切りの回数       :  {}回".format(buy_records.Stop.sum()))
+    #
+    # print("-----------------------------------")
+    # print("売りエントリの成績")
+    # print("-----------------------------------")
+    # print("トレード回数       :  {}回".format(len(sell_records)))
+    # print("勝率               :  {}％".format(
+    #     round(len(sell_records[sell_records.Profit > 0]) / len(sell_records) * 100, 1)))
+    # print("平均リターン       :  {}％".format(round(sell_records.Rate.mean(), 2)))
+    # print("総損益             :  {}円".format(sell_records.Profit.sum()))
+    # print("平均保有期間       :  {}足分".format(round(sell_records.Periods.mean(), 1)))
+    # print("損切りの回数       :  {}回".format(sell_records.Stop.sum()))
 
     print("-----------------------------------")
     print("総合の成績")
@@ -686,41 +647,41 @@ def backtest(flag):
     print("全トレード数       :  {}回".format(len(records)))
     print("勝率               :  {}％".format(round(len(records[records.Profit > 0]) / len(records) * 100, 1)))
     print("平均リターン       :  {}％".format(round(records.Rate.mean(), 2)))
-    print("標準偏差           :  {}％".format(round(records.Rate.std(), 2)))
-    print("平均利益率         :  {}％".format(round(records[records.Profit > 0].Rate.mean(), 2)))
-    print("平均損失率         :  {}％".format(round(records[records.Profit < 0].Rate.mean(), 2)))
-    print("平均保有期間       :  {}足分".format(round(records.Periods.mean(), 1)))
+    # print("標準偏差           :  {}％".format(round(records.Rate.std(), 2)))
+    # print("平均利益率         :  {}％".format(round(records[records.Profit > 0].Rate.mean(), 2)))
+    # print("平均損失率         :  {}％".format(round(records[records.Profit < 0].Rate.mean(), 2)))
+    # print("平均保有期間       :  {}足分".format(round(records.Periods.mean(), 1)))
     print("損切りの回数       :  {}回".format(records.Stop.sum()))
-    print("")
-    print("最大の勝ちトレード :  {}円".format(records.Profit.max()))
-    print("最大の負けトレード :  {}円".format(records.Profit.min()))
-    print("最大連敗回数       :  {}回".format(max(consecutive_defeats)))
+    # print("")
+    # print("最大の勝ちトレード :  {}円".format(records.Profit.max()))
+    # print("最大の負けトレード :  {}円".format(records.Profit.min()))
+    # print("最大連敗回数       :  {}回".format(max(consecutive_defeats)))
     print("最大ドローダウン   :  {0}円 / {1}％".format(-1 * records.Drawdown.max(),
                                              -1 * records.DrawdownRate.loc[records.Drawdown.idxmax()]))
-    print("利益合計           :  {}円".format(records[records.Profit > 0].Profit.sum()))
-    print("損失合計           :  {}円".format(records[records.Profit < 0].Profit.sum()))
+    # print("利益合計           :  {}円".format(records[records.Profit > 0].Profit.sum()))
+    # print("損失合計           :  {}円".format(records[records.Profit < 0].Profit.sum()))
     print("最終損益           :  {}円".format(records.Profit.sum()))
-    print("")
-    print("初期資金           :  {}円".format(start_funds))
-    print("最終資金           :  {}円".format(records.Funds.iloc[-1]))
+    # print("")
+    # print("初期資金           :  {}円".format(start_funds))
+    # print("最終資金           :  {}円".format(records.Funds.iloc[-1]))
     print("運用成績           :  {}％".format(round(records.Funds.iloc[-1] / start_funds * 100), 2))
-    print("手数料合計         :  {}円".format(-1 * records.Slippage.sum()))
-
-    print("-----------------------------------")
-    print("各成績指標")
-    print("-----------------------------------")
+    # print("手数料合計         :  {}円".format(-1 * records.Slippage.sum()))
+    #
+    # print("-----------------------------------")
+    # print("各成績指標")
+    # print("-----------------------------------")
     # print("CAGR(年間成長率)         :  {}％".format(
     #     round((records.Funds.iloc[-1] / start_funds) ** (365 / time_period) * 100 - 100, 2)))
-    print("MARレシオ                :  {}".format(
-        round((records.Funds.iloc[-1] / start_funds - 1) * 100 / records.DrawdownRate.max(), 2)))
-    print("シャープレシオ           :  {}".format(round(records.Rate.mean() / records.Rate.std(), 2)))
+    # print("MARレシオ                :  {}".format(
+    #     round((records.Funds.iloc[-1] / start_funds - 1) * 100 / records.DrawdownRate.max(), 2)))
+    # print("シャープレシオ           :  {}".format(round(records.Rate.mean() / records.Rate.std(), 2)))
     print("プロフィットファクター   :  {}".format(
         round(records[records.Profit > 0].Profit.sum() / abs(records[records.Profit < 0].Profit.sum()), 2)))
-    print("損益レシオ               :  {}".format(
-        round(records[records.Profit > 0].Rate.mean() / abs(records[records.Profit < 0].Rate.mean()), 2)))
-
-    print("-----------------------------------")
-    print("月別の成績")
+    # print("損益レシオ               :  {}".format(
+    #     round(records[records.Profit > 0].Rate.mean() / abs(records[records.Profit < 0].Rate.mean()), 2)))
+    #
+    # print("-----------------------------------")
+    # print("月別の成績")
 
     # for index, row in month_records.iterrows():
     #     print("-----------------------------------")
@@ -764,68 +725,327 @@ def backtest(flag):
     # plt.legend()  # 凡例を表示
     # plt.show()
 
+    # バックテストの計算結果を返す
+    result = {
+        "トレード回数": len(records),
+        "勝率": round(len(records[records.Profit > 0]) / len(records) * 100, 1),
+        "平均リターン": round(records.Rate.mean(), 2),
+        "最大ドローダウン": -1 * records.Drawdown.max(),
+        "最終損益": records.Profit.sum(),
+        "プロフィットファクタ―": round(-1 * (records[records.Profit > 0].Profit.sum() / records[records.Profit < 0].Profit.sum()),
+                             2)
+    }
+
+    return result
+
 
 # ------------ここからメイン処理--------------
+price_list = {}
+for granularity in granularity_list:
+    price_list[granularity] = get_price_from_file('csv/' + instrument + '_' + granularity + '_' + '2017.1.1' + '.csv')
+    print("-----{}軸の価格データを取得中-----".format(granularity))
+    time.sleep(0)
 
-# 価格チャートを取得
-# pd.plotting.register_matplotlib_converters()
-# price = get_price()
-price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
+# テストごとの各パラメーターの組み合わせと結果を記録する配列を準備
+param_granularity = []
+param_buy_term = []
+param_sell_term = []
+param_volatility_term = []
+param_entry_times = []
+param_entry_range = []
+param_filter_VER = []
+param_MA_term = []
+param_judge_price = []
 
+result_count = []
+result_winRate = []
+result_returnRate = []
+result_drawdown = []
+result_profitFactor = []
+result_gross = []
+# 総当たりのためのfor文の準備
+combinations = [(granularity, buy_term, sell_term, volatility_term, entry_times, entry_range, filter_VER, judge_price)
+                for granularity in granularity_list
+                for buy_term in buy_term_list
+                for sell_term in sell_term_list
+                for volatility_term in volatility_term_list
+                for entry_times in entry_times_list
+                for entry_range in entry_range_list
+                for filter_VER in filter_VER_list
+                for judge_price in judge_price_list]
 
-last_data = []
-need_term = max(buy_term, sell_term, volatility_term)
-i = 0
-while i < len(price):
+for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,  filter_VER, judge_price in combinations:
+    if filter_VER != "OFF":
+        for MA_term in MA_term_list:
 
-    # ドンチャンの判定に使う期間分の安値・高値データを準備する
-    if len(last_data) < need_term:
-        last_data.append(price[i])
-        flag = log_price(price[i], flag)
-        time.sleep(wait)
-        i += 1
-        continue
+            price = price_list[granularity]
+            last_data = []
+            i = 0
+            need_term = max(buy_term, sell_term, volatility_term)
+            if granularity == "H1":
+                chart_sec = 3600  # 1時間足を使用
+            elif granularity == "H2":
+                chart_sec = 7200  # 2時間足を使用
 
-    data = price[i]
-    flag = log_price(data, flag)
+            flag = {
+                "position": {
+                    "exist": False,
+                    "side": "",
+                    "price": 0,
+                    "stop": 0,
+                    "stop-AF": stop_AF,
+                    "stop-EP": 0,
+                    "ATR": 0,
+                    "lot": 0,
+                    "count": 0
+                },
+                "add-position": {
+                    "count": 0,
+                    "first-entry-price": 0,
+                    "last-entry-price": 0,
+                    "unit-range": 0,
+                    "unit-size": 0,
+                    "stop": 0
+                },
+                "records": {
+                    "date": [],
+                    "profit": [],
+                    "return": [],
+                    "side": [],
+                    "stop-count": [],
+                    "funds": start_funds,
+                    "holding-periods": [],
+                    "slippage": [],
+                    "log": []
+                }
+            }
 
-    # ポジションがある場合
-    if flag["position"]["exist"]:
+            while i < len(price):
 
-        # 終値がポジションと同じ方向に動いた場合
-        # 買いなら（安値⇒高値）の順、売りなら（高値⇒安値）の順に適用
+                # ドンチャンの判定に使う期間分の安値・高値データを準備する
+                if len(last_data) < need_term:
+                    last_data.append(price[i])
+                    flag = log_price(price[i], flag)
+                    time.sleep(wait)
+                    i += 1
+                    continue
 
-        if (flag["position"]["side"] == "BUY" and data["open_price"] < data["close_price"]) \
-                or (flag["position"]["side"] == "SELL" and data["open_price"] > data["close_price"]):
-            if stop_config != "OFF":
-                flag = stop_position(data, flag)
-            flag = close_position(data, last_data, flag)
-            flag = add_position(data, flag)
-            flag = trail_stop(data, flag)
+                data = price[i]
+                flag = log_price(data, flag)
 
-        # 終値がポジションと逆の方向に動いた場合
-        # 買いなら（高値⇒安値）の順、売りなら（安値⇒高値）の順に適用
+                # ポジションがある場合
+                if flag["position"]["exist"]:
 
+                    # 終値がポジションと同じ方向に動いた場合
+                    # 買いなら（安値⇒高値）の順、売りなら（高値⇒安値）の順に適用
+
+                    if (flag["position"]["side"] == "BUY" and data["open_price"] < data["close_price"]) \
+                            or (flag["position"]["side"] == "SELL" and data["open_price"] > data["close_price"]):
+                        if stop_config != "OFF":
+                            flag = stop_position(data, flag)
+                        flag = close_position(data, last_data, flag)
+                        flag = add_position(data, flag)
+                        flag = trail_stop(data, flag)
+
+                    # 終値がポジションと逆の方向に動いた場合
+                    # 買いなら（高値⇒安値）の順、売りなら（安値⇒高値）の順に適用
+
+                    else:
+
+                        flag = add_position(data, flag)
+                        flag = trail_stop(data, flag)
+                        flag = stop_position(data, flag)
+                        flag = close_position(data, last_data, flag)
+
+                # ポジションがない場合
+                else:
+                    flag = entry_signal(data, last_data, flag)
+
+                last_data.append(data)
+                i += 1
+                time.sleep(wait)
+
+            print("--------------------------")
+            print("テスト期間   :")
+            print("開始時点     : " + str(price[0]["close_time_dt"]))
+            print("終了時点     : " + str(price[-1]["close_time_dt"]))
+            print("時間軸       : " + str(granularity) + "足で検証")
+            print("パラメータ１ : " + str(buy_term) + "期間 / 買い")
+            print("パラメータ２ : " + str(sell_term) + "期間 / 売り")
+            print(str(len(price)) + "件のローソク足データで検証")
+            print("--------------------------")
+
+            result = backtest(flag)
+
+            # 今回のループで使ったパラメータの組み合わせを配列に記録する
+            param_buy_term.append(buy_term)
+            param_sell_term.append(sell_term)
+            param_volatility_term.append(volatility_term)
+            param_entry_times.append(entry_times)
+            param_entry_range.append(entry_range)
+            param_filter_VER .append(filter_VER)
+            param_MA_term.append(MA_term)
+            param_granularity.append(granularity)
+            if judge_price["BUY"] == "high_price":
+                param_judge_price.append("高値/安値")
+            else:
+                param_judge_price.append("終値/終値")
+
+            # 今回のループのバックテスト結果を配列に記録する
+            result_count.append(result["トレード回数"])
+            result_winRate.append(result["勝率"])
+            result_returnRate.append(result["平均リターン"])
+            result_drawdown.append(result["最大ドローダウン"])
+            result_profitFactor.append(result["プロフィットファクタ―"])
+            result_gross.append(result["最終損益"])
+
+    elif filter_VER == "OFF":
+        price = price_list[granularity]
+        last_data = []
+        i = 0
+        need_term = max(buy_term, sell_term, volatility_term)
+        if granularity == "H1":
+            chart_sec = 3600  # 1時間足を使用
+        elif granularity == "H2":
+            chart_sec = 7200  # 2時間足を使用
+
+        flag = {
+            "position": {
+                "exist": False,
+                "side": "",
+                "price": 0,
+                "stop": 0,
+                "stop-AF": stop_AF,
+                "stop-EP": 0,
+                "ATR": 0,
+                "lot": 0,
+                "count": 0
+            },
+            "add-position": {
+                "count": 0,
+                "first-entry-price": 0,
+                "last-entry-price": 0,
+                "unit-range": 0,
+                "unit-size": 0,
+                "stop": 0
+            },
+            "records": {
+                "date": [],
+                "profit": [],
+                "return": [],
+                "side": [],
+                "stop-count": [],
+                "funds": start_funds,
+                "holding-periods": [],
+                "slippage": [],
+                "log": []
+            }
+        }
+
+        while i < len(price):
+
+            # ドンチャンの判定に使う期間分の安値・高値データを準備する
+            if len(last_data) < need_term:
+                last_data.append(price[i])
+                flag = log_price(price[i], flag)
+                time.sleep(wait)
+                i += 1
+                continue
+
+            data = price[i]
+            flag = log_price(data, flag)
+
+            # ポジションがある場合
+            if flag["position"]["exist"]:
+
+                # 終値がポジションと同じ方向に動いた場合
+                # 買いなら（安値⇒高値）の順、売りなら（高値⇒安値）の順に適用
+
+                if (flag["position"]["side"] == "BUY" and data["open_price"] < data["close_price"]) \
+                        or (flag["position"]["side"] == "SELL" and data["open_price"] > data["close_price"]):
+                    if stop_config != "OFF":
+                        flag = stop_position(data, flag)
+                    flag = close_position(data, last_data, flag)
+                    flag = add_position(data, flag)
+                    flag = trail_stop(data, flag)
+
+                # 終値がポジションと逆の方向に動いた場合
+                # 買いなら（高値⇒安値）の順、売りなら（安値⇒高値）の順に適用
+
+                else:
+
+                    flag = add_position(data, flag)
+                    flag = trail_stop(data, flag)
+                    flag = stop_position(data, flag)
+                    flag = close_position(data, last_data, flag)
+
+            # ポジションがない場合
+            else:
+                flag = entry_signal(data, last_data, flag)
+
+            last_data.append(data)
+            i += 1
+            time.sleep(wait)
+
+        print("--------------------------")
+        print("テスト期間   :")
+        print("開始時点     : " + str(price[0]["close_time_dt"]))
+        print("終了時点     : " + str(price[-1]["close_time_dt"]))
+        print("時間軸       : " + str(granularity) + "足で検証")
+        print("パラメータ１ : " + str(buy_term) + "期間 / 買い")
+        print("パラメータ２ : " + str(sell_term) + "期間 / 売り")
+        print(str(len(price)) + "件のローソク足データで検証")
+
+        result = backtest(flag)
+
+        MA_term = "Nan"
+        # 今回のループで使ったパラメータの組み合わせを配列に記録する
+        param_buy_term.append(buy_term)
+        param_sell_term.append(sell_term)
+        param_volatility_term.append(volatility_term)
+        param_entry_times.append(entry_times)
+        param_entry_range.append(entry_range)
+        param_MA_term.append(MA_term)
+        param_filter_VER.append(filter_VER)
+
+        param_granularity.append(granularity)
+        if judge_price["BUY"] == "high_price":
+            param_judge_price.append("高値/安値")
         else:
+            param_judge_price.append("終値/終値")
 
-            flag = add_position(data, flag)
-            flag = trail_stop(data, flag)
-            flag = stop_position(data, flag)
-            flag = close_position(data, last_data, flag)
+        # 今回のループのバックテスト結果を配列に記録する
+        result_count.append(result["トレード回数"])
+        result_winRate.append(result["勝率"])
+        result_returnRate.append(result["平均リターン"])
+        result_drawdown.append(result["最大ドローダウン"])
+        result_profitFactor.append(result["プロフィットファクタ―"])
+        result_gross.append(result["最終損益"])
 
-    # ポジションがない場合
-    else:
-        flag = entry_signal(data, last_data, flag)
+# 全てのパラメータによるバックテスト結果をPandasで１つの表にする
+df = pd.DataFrame({
+    "時間軸": param_granularity,
+    "買い期間": param_buy_term,
+    "売り期間": param_sell_term,
+    "ATR": param_volatility_term,
+    "entry_time": param_entry_times,
+    "entry_range": param_entry_range,
+    "filter_VER": param_filter_VER,
+    "MA期間": param_MA_term,
+    "判定基準": param_judge_price,
+    "トレード回数": result_count,
+    "勝率": result_winRate,
+    "平均リターン": result_returnRate,
+    "ドローダウン": result_drawdown,
+    "PF": result_profitFactor,
+    "最終損益": result_gross
+})
 
-    last_data.append(data)
-    i += 1
-    time.sleep(wait)
+# 列の順番を固定する
+df = df[["時間軸", "買い期間", "売り期間", "ATR", "entry_time", "entry_range", "filter_VER", "MA期間", "判定基準", "トレード回数", "勝率", "平均リターン", "ドローダウン", "PF", "最終損益"]]
 
-print("--------------------------")
-print("テスト期間：")
-print("開始時点 : " + str(price[0]["close_time_dt"]))
-print("終了時点 : " + str(price[-1]["close_time_dt"]))
-print(str(len(price)) + "件のローソク足データで検証")
-print("--------------------------")
+# トレード回数が100に満たない記録は消す
+df.drop(df[df["トレード回数"] < 100].index, inplace=True)
 
-backtest(flag)
+# 最終結果をcsvファイルに出力
+df.to_csv("result-{}.csv".format(datetime.now().strftime("%Y-%m-%d-%H-%M")))

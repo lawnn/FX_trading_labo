@@ -8,35 +8,38 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# -------------設定項目------------------------
+# --------設定項目--------
 
-wait = 0                   # ループの待機時間
-buy_term = 45              # 買いエントリーのブレイク期間の設定
-sell_term = 45             # 売りエントリーのブレイク期間の設定
+chart_sec = 3600  # １時間足を使用
+buy_term = 30  # 買いエントリーのブレイク期間の設定
+sell_term = 30  # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
+    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
-volatility_term = 30       # 平均ボラティリティの計算に使う期間
-stop_range = 2             # 何レンジ幅に損切（ストップ）を置くか
-trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 5               # レバレッジ倍率の設定
-start_funds = 500000       # シミュレーション時の初期資金
+TEST_MODE_LOT = "adjustable"  # fixed なら常に1BTC固定 / adjustable なら可変ロット
 
-entry_times = 2            # 何回に分けて追加ポジションを取るか
-entry_range = 1            # 何レンジごとに追加ポジションを取るか
+volatility_term = 5  # 平均ボラティリティの計算に使う期間
+stop_range = 2  # 何レンジ幅にストップを入れるか
+trade_risk = 0.03  # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 3  # レバレッジ倍率の設定
+start_funds = 500000  # シミュレーション時の初期資金
 
-stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
-stop_AF = 0.02             # 加速係数
-stop_AF_add = 0.02         # 加速係数を増やす度合
-stop_AF_max = 0.2          # 加速係数の上限
+entry_times = 4  # 何回に分けて追加ポジションを取るか
+entry_range = 0.5  # 何レンジごとに追加ポジションを取るか
 
-filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 200              # トレンドフィルターに使う移動平均線の期間
+stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
+stop_AF = 0.02  # 加速係数
+stop_AF_add = 0.02  # 加速係数を増やす度合
+stop_AF_max = 0.2  # 加速係数の上限
 
-slippage = 0.0002          # 手数料・スリッページ
+filter_VER = "B"  # OFFで無効
+MA_term = 100  # トレンドフィルターに使う移動平均線の期間
+
+wait = 0  # ループの待機時間
+slippage = 0.001  # 手数料・スリッページ
 
 accountID, token = exampleAuth()
 instrument = "EUR_JPY"
@@ -97,13 +100,12 @@ def donchian(data, last_data):
 
 # エントリー注文を出す関数
 def entry_signal(data, last_data, flag):
-    if flag["position"]["exist"] == True:
-        return flag
-
     signal = donchian(data, last_data)
+
     if signal["side"] == "BUY":
         flag["records"]["log"].append(
             "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+
         # フィルター条件を確認
         if filter(signal) == False:
             flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
@@ -214,13 +216,12 @@ def close_position(data, last_data, flag):
             flag["add-position"]["count"] = 0
 
             # ドテン注文の箇所
-            # フィルター条件を確認
             if filter(signal) == False:
                 flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot >= 0.01:
+            if lot > 0.01:
                 flag["records"]["log"].append("\n{0}円で{1}BTCの売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
@@ -247,7 +248,6 @@ def close_position(data, last_data, flag):
             flag["add-position"]["count"] = 0
 
             # ドテン注文の箇所
-            # フィルター条件を確認
             if filter(signal) == False:
                 flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
                 return flag
@@ -267,9 +267,7 @@ def close_position(data, last_data, flag):
     return flag
 
 
-# -------------トレンドフィルターの関数--------------
-
-# トレンドフィルターの関数
+# エントリーフィルターの関数
 def filter(signal):
     if filter_VER == "OFF":
         return True
@@ -277,9 +275,9 @@ def filter(signal):
     if filter_VER == "A":
         if len(last_data) < MA_term:
             return True
-        if data["settled"]["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
+        if data["close_price"] > last_data[MA_term]["close_price"] and signal["side"] == "BUY":
             return True
-        if data["settled"]["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
+        if data["close_price"] < last_data[MA_term]["close_price"] and signal["side"] == "SELL":
             return True
 
     if filter_VER == "B":
@@ -301,16 +299,40 @@ def calculate_MA(value, before=None):
     return round(MA)
 
 
+# 指数移動平均を計算する関数
+def calculate_EMA(value, before=None):
+    if before is not None:
+        MA = sum(i["close_price"] for i in last_data[-2 * value + before: -1 * value + before]) / value
+        EMA = (last_data[-1 * value + before]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
+        for i in range(value - 1):
+            EMA = (last_data[-1 * value + before + 1 + i]["close_price"] * 2 / (value + 1)) + (
+                        EMA * (value - 1) / (value + 1))
+    else:
+        MA = sum(i["close_price"] for i in last_data[-2 * value: -1 * value]) / value
+        EMA = (last_data[-1 * value]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
+        for i in range(value - 1):
+            EMA = (last_data[-1 * value + 1 + i]["close_price"] * 2 / (value + 1)) + (EMA * (value - 1) / (value + 1))
+    return round(EMA)
+
+
 # -------------資金管理の関数--------------
 
 # 注文ロットを計算する関数
 def calculate_lot(last_data, data, flag):
+    # 固定ロットでのテスト時
+    if TEST_MODE_LOT == "fixed":
+        flag["records"]["log"].append("固定ロット(1枚)でテスト中のため、1BTCを注文します\n")
+        lot = 1
+        volatility = calculate_volatility(last_data)
+        stop = stop_range * volatility
+        flag["position"]["ATR"] = round(volatility)
+        return lot, stop, flag
+
     # 口座残高を取得する
     balance = flag["records"]["funds"]
 
     # 最初のエントリーの場合
     if flag["add-position"]["count"] == 0:
-
         # １回の注文単位（ロット数）と、追加ポジの基準レンジを計算する
         volatility = calculate_volatility(last_data)
         stop = stop_range * volatility
@@ -335,8 +357,8 @@ def calculate_lot(last_data, data, flag):
     # 実際に購入可能な枚数を計算する
     able_lot = np.floor(balance * leverage / data["close_price"] * 100) / 100
     lot = min(able_lot, flag["add-position"]["unit-size"])
-
     flag["records"]["log"].append("証拠金から購入できる枚数は最大{}BTCまでです\n".format(able_lot))
+
     return lot, stop, flag
 
 
@@ -344,6 +366,10 @@ def calculate_lot(last_data, data, flag):
 def add_position(data, flag):
     # ポジションがない場合は何もしない
     if flag["position"]["exist"] == False:
+        return flag
+
+    # 固定ロット（1BTC）でのテスト時は何もしない
+    if TEST_MODE_LOT == "fixed":
         return flag
 
     # 最初（１回目）のエントリー価格を記録
@@ -416,7 +442,6 @@ def add_position(data, flag):
                 flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] - stop))
             elif flag["position"]["side"] == "SELL":
                 flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
-
             flag["records"]["log"].append("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
             flag["records"]["log"].append("現在のポジションサイズは{}BTCです\n\n".format(flag["position"]["lot"]))
 
@@ -428,8 +453,8 @@ def add_position(data, flag):
 
 # トレイリングストップの関数
 def trail_stop(data, flag):
-    # まだ追加ポジション（増し玉）の取得中であれば何もしない
-    if flag["add-position"]["count"] < entry_times:
+    # まだ追加ポジションの取得中であれば何もしない
+    if flag["add-position"]["count"] < entry_times and TEST_MODE_LOT != "fixed":
         return flag
 
     # 高値／安値がエントリー価格からいくら離れたか計算
@@ -448,12 +473,12 @@ def trail_stop(data, flag):
     flag["position"]["stop"] = round(
         flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"])
 
-    # 加速係数を更新する
+    # 加速係数を更新
     flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 2)
     if flag["position"]["stop-AF"] >= stop_AF_max:
         flag["position"]["stop-AF"] = stop_AF_max
 
-    # ログを出力する
+    # ログ出力
     if flag["position"]["side"] == "BUY":
         flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
             round(flag["position"]["price"] - flag["position"]["stop"]), flag["position"]["stop-AF"]))
@@ -601,6 +626,11 @@ def backtest(flag):
             consecutive_defeats.append(defeats)
             defeats = 0
 
+    # テスト日数を集計
+    # time_period = datetime.fromtimestamp(last_data[-1]["close_time_dt"]) - datetime.fromtimestamp(
+    #     last_data[0]["close_time_dt"])
+    # time_period = int(time_period.days)
+
     # 総損益の列を追加する
     records["Gross"] = records.Profit.cumsum()
 
@@ -656,6 +686,9 @@ def backtest(flag):
     print("全トレード数       :  {}回".format(len(records)))
     print("勝率               :  {}％".format(round(len(records[records.Profit > 0]) / len(records) * 100, 1)))
     print("平均リターン       :  {}％".format(round(records.Rate.mean(), 2)))
+    print("標準偏差           :  {}％".format(round(records.Rate.std(), 2)))
+    print("平均利益率         :  {}％".format(round(records[records.Profit > 0].Rate.mean(), 2)))
+    print("平均損失率         :  {}％".format(round(records[records.Profit < 0].Rate.mean(), 2)))
     print("平均保有期間       :  {}足分".format(round(records.Periods.mean(), 1)))
     print("損切りの回数       :  {}回".format(records.Stop.sum()))
     print("")
@@ -674,6 +707,19 @@ def backtest(flag):
     print("手数料合計         :  {}円".format(-1 * records.Slippage.sum()))
 
     print("-----------------------------------")
+    print("各成績指標")
+    print("-----------------------------------")
+    # print("CAGR(年間成長率)         :  {}％".format(
+    #     round((records.Funds.iloc[-1] / start_funds) ** (365 / time_period) * 100 - 100, 2)))
+    print("MARレシオ                :  {}".format(
+        round((records.Funds.iloc[-1] / start_funds - 1) * 100 / records.DrawdownRate.max(), 2)))
+    print("シャープレシオ           :  {}".format(round(records.Rate.mean() / records.Rate.std(), 2)))
+    print("プロフィットファクター   :  {}".format(
+        round(records[records.Profit > 0].Profit.sum() / abs(records[records.Profit < 0].Profit.sum()), 2)))
+    print("損益レシオ               :  {}".format(
+        round(records[records.Profit > 0].Rate.mean() / abs(records[records.Profit < 0].Rate.mean()), 2)))
+
+    print("-----------------------------------")
     print("月別の成績")
 
     for index, row in month_records.iterrows():
@@ -686,20 +732,40 @@ def backtest(flag):
         print("継続ドローダウン   :  {}円".format(-1 * row.Drawdown.astype(int)))
         print("月末資金           :  {}円".format(row.Funds.astype(int)))
 
+    # 際立った損益を表示
+    n = 10
+    print("------------------------------------------")
+    print("＋{}%を超えるトレードの回数  :  {}回".format(n, len(records[records.Rate > n])))
+    print("------------------------------------------")
+    for index, row in records[records.Rate > n].iterrows():
+        print("{0}  |  {1}％  |  {2}".format(row.Date, round(row.Rate, 2), row.Side))
+    print("------------------------------------------")
+    print("－{}%を下回るトレードの回数  :  {}回".format(n, len(records[records.Rate < n * -1])))
+    print("------------------------------------------")
+    for index, row in records[records.Rate < n * -1].iterrows():
+        print("{0}  |  {1}％  |  {2}".format(row.Date, round(row.Rate, 2), row.Side))
+
     # ログファイルの出力
-    file = open("./{0}-log.txt".format(datetime.now().strftime("%Y-%m-%d-%H-%M")), 'wt', encoding='utf-8')
+    file = open("text./{0}-log.txt".format(datetime.now().strftime("%Y-%m-%d-%H-%M")), 'wt', encoding='utf-8')
     file.writelines(flag["records"]["log"])
 
     # 損益曲線をプロット
+    plt.subplot(1, 2, 1)
     plt.plot(records.Date, records.Funds)
     plt.xlabel("Date")
     plt.ylabel("Balance")
     plt.xticks(rotation=50)  # X軸の目盛りを50度回転
 
+    # リターン分布の相対度数表を作る
+    plt.subplot(1, 2, 2)
+    plt.hist(records.Rate, 50, rwidth=0.9)
+    plt.axvline(x=0, linestyle="dashed", label="Return = 0")
+    plt.axvline(records.Rate.mean(), color="orange", label="AverageReturn")
+    plt.legend()  # 凡例を表示
     plt.show()
 
-# ------------ここからメイン処理の記述--------------
 
+# ------------ここからメイン処理--------------
 
 # 価格チャートを取得
 pd.plotting.register_matplotlib_converters()
@@ -736,6 +802,16 @@ while i < len(price):
             flag = close_position(data, last_data, flag)
             flag = add_position(data, flag)
             flag = trail_stop(data, flag)
+
+        # 終値がポジションと逆の方向に動いた場合
+        # 買いなら（高値⇒安値）の順、売りなら（安値⇒高値）の順に適用
+
+        else:
+
+            flag = add_position(data, flag)
+            flag = trail_stop(data, flag)
+            flag = stop_position(data, flag)
+            flag = close_position(data, last_data, flag)
 
     # ポジションがない場合
     else:

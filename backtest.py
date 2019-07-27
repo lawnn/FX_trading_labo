@@ -278,9 +278,9 @@ def filter(signal):
     if filter_VER == "A":
         if len(last_data) < MA_term:
             return True
-        if data["settled"]["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
+        if data.get("close_price") > calculate_MA(MA_term) and signal["side"] == "BUY":
             return True
-        if data["settled"]["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
+        if data.get("close_price") < calculate_MA(MA_term) and signal["side"] == "SELL":
             return True
 
     if filter_VER == "B":

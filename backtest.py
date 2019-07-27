@@ -19,7 +19,7 @@ judge_price = {
   "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
-TEST_MODE_LOT = "fixed"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
+TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
 volatility_term = 30       # 平均ボラティリティの計算に使う期間
 stop_range = 2             # 何レンジ幅に損切（ストップ）を置くか
 trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
@@ -327,9 +327,9 @@ def calculate_lot(last_data, data, flag):
         # １回の注文単位（ロット数）と、追加ポジの基準レンジを計算する
         volatility = calculate_volatility(last_data)
         stop = stop_range * volatility
-        calc_lot = round(np.floor(balance * trade_risk / stop * 100) / 100, -3)
+        calc_lot = int(round(np.floor(balance * trade_risk / stop * 100) / 100, -3))
 
-        flag["add-position"]["unit-size"] = np.floor(calc_lot / entry_times * 100) / 100
+        flag["add-position"]["unit-size"] = int(np.floor(calc_lot / entry_times * 100) / 100)
         flag["add-position"]["unit-range"] = round(volatility * entry_range)
         flag["add-position"]["stop"] = stop
         flag["position"]["ATR"] = volatility
@@ -346,7 +346,7 @@ def calculate_lot(last_data, data, flag):
     stop = flag["add-position"]["stop"]
 
     # 実際に購入可能な枚数を計算する
-    able_lot = np.floor(balance * leverage / data["close_price"] * 100) / 100
+    able_lot = int(round(np.floor(balance * leverage / data["close_price"] * 100) / 100, -3))
     lot = min(able_lot, flag["add-position"]["unit-size"])
 
     flag["records"]["log"].append("証拠金から購入できる枚数は最大{}通貨までです\n".format(able_lot))

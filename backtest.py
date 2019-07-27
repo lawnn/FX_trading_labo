@@ -37,8 +37,6 @@ stop_AF_max = 0.2          # 加速係数の上限
 filter_VER = "OFF"           # フィルター設定／OFFで無効
 MA_term = 200              # トレンドフィルターに使う移動平均線の期間
 
-slippage = 0.0002          # 手数料・スリッページ
-
 accountID, token = exampleAuth()
 instrument = "EUR_JPY"
 params = {
@@ -78,7 +76,6 @@ flag = {
         "stop-count": [],
         "funds": start_funds,
         "holding-periods": [],
-        "slippage": [],
         "log": []
     }
 }
@@ -408,7 +405,6 @@ def add_position(data, flag):
             # 追加注文を出す
             if flag["position"]["side"] == "BUY":
                 entry_price = first_entry_price + (flag["add-position"]["count"] * unit_range)
-                # entry_price = round((1 + slippage) * entry_price)
 
                 flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}通貨の買い注文を出します\n".format(entry_price, lot))
 
@@ -416,7 +412,6 @@ def add_position(data, flag):
 
             if flag["position"]["side"] == "SELL":
                 entry_price = first_entry_price - (flag["add-position"]["count"] * unit_range)
-                # entry_price = round((1 - slippage) * entry_price)
 
                 flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}通貨の売り注文を出します\n".format(entry_price, lot))
 
@@ -547,11 +542,7 @@ def records(flag, data, close_price, close_type=None):
     # 取引手数料等の計算
     entry_price = int(round(flag["position"]["price"] * flag["position"]["lot"]))
     exit_price = int(round(close_price * flag["position"]["lot"]))
-    trade_cost = round(exit_price * slippage)
 
-    log = "スリッページ・手数料として " + str(trade_cost) + "円を考慮します\n"
-    flag["records"]["log"].append(log)
-    flag["records"]["slippage"].append(trade_cost)
 
     # 手仕舞った日時と保有期間を記録
     flag["records"]["date"].append(data["close_time_dt"])
@@ -564,8 +555,8 @@ def records(flag, data, close_price, close_type=None):
         flag["records"]["stop-count"].append(0)
 
     # 値幅の計算
-    buy_profit = exit_price - entry_price - trade_cost
-    sell_profit = entry_price - exit_price - trade_cost
+    buy_profit = exit_price - entry_price
+    sell_profit = entry_price - exit_price
 
     # 利益が出てるかの計算
     if flag["position"]["side"] == "BUY":
@@ -605,7 +596,6 @@ def backtest(flag):
         "Rate": flag["records"]["return"],
         "Stop": flag["records"]["stop-count"],
         "Periods": flag["records"]["holding-periods"],
-        "Slippage": flag["records"]["slippage"]
     })
 
     # 連敗回数をカウントする
@@ -688,7 +678,6 @@ def backtest(flag):
     print("初期資金           :  {}円".format(start_funds))
     print("最終資金           :  {}円".format(records.Funds.iloc[-1]))
     print("運用成績           :  {}％".format(round(records.Funds.iloc[-1] / start_funds * 100), 2))
-    print("手数料合計         :  {}円".format(-1 * records.Slippage.sum()))
     print("-----------------------------------")
     print("各成績指標")
     print("-----------------------------------")

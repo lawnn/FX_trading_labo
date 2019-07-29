@@ -15,19 +15,19 @@ buy_term = 45              # 買いエントリーのブレイク期間の設定
 sell_term = 45             # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+  "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
+  "SELL": "close_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
-volatility_term = 30       # 平均ボラティリティの計算に使う期間
+volatility_term = 3       # 平均ボラティリティの計算に使う期間
 stop_range = 2             # 何レンジ幅に損切（ストップ）を置くか
-trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 5               # レバレッジ倍率の設定
+trade_risk = 0.03          # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 3               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
 
-entry_times = 2            # 何回に分けて追加ポジションを取るか
-entry_range = 1            # 何レンジごとに追加ポジションを取るか
+entry_times = 4            # 何回に分けて追加ポジションを取るか
+entry_range = 0.5            # 何レンジごとに追加ポジションを取るか
 
 stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
 stop_AF = 0.02             # 加速係数
@@ -35,7 +35,9 @@ stop_AF_add = 0.02         # 加速係数を増やす度合
 stop_AF_max = 0.2          # 加速係数の上限
 
 filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 200              # トレンドフィルターに使う移動平均線の期間
+MA_term = 75              # トレンドフィルターに使う移動平均線の期間
+long_EMA_term = 200
+short_EMA_term = 14
 
 accountID, token = exampleAuth()
 instrument = "EUR_JPY"
@@ -290,6 +292,14 @@ def filter(signal):
             return True
         if calculate_MA(MA_term) < calculate_MA(MA_term, -1) and signal["side"] == "SELL":
             return True
+
+    if filter_VER == "C":
+        if len(last_data) < (long_EMA_term * 2):
+            return True
+        if calculate_EMA(long_EMA_term) < calculate_EMA(short_EMA_term) and signal["side"] == "BUY":
+            return True
+        if calculate_EMA(long_EMA_term) > calculate_EMA(short_EMA_term) and signal["side"] == "SELL":
+            return True
     return False
 
 
@@ -300,6 +310,21 @@ def calculate_MA(value, before=None):
     else:
         MA = sum(i["close_price"] for i in last_data[-1 * value + before: before]) / value
     return round(MA)
+
+
+# 指数移動平均を計算する関数
+def calculate_EMA( value,before=None ):
+    if before is not None:
+        MA = sum(i["close_price"] for i in last_data[-2*value + before : -1*value + before]) / value
+        EMA = (last_data[-1*value + before]["close_price"] * 2 / (value+1)) + (MA * (value-1) / (value+1))
+        for i in range(value-1):
+            EMA = (last_data[-1*value+before+1 + i]["close_price"] * 2 /(value+1)) + (EMA * (value-1) / (value+1))
+    else:
+        MA = sum(i["close_price"] for i in last_data[-2*value: -1*value]) / value
+        EMA = (last_data[-1*value]["close_price"] * 2 / (value+1)) + (MA * (value-1) / (value+1))
+        for i in range(value-1):
+            EMA = (last_data[-1*value+1 + i]["close_price"] * 2 /(value+1)) + (EMA * (value-1) / (value+1))
+    return round(EMA)
 
 
 # -------------資金管理の関数--------------
@@ -327,7 +352,7 @@ def calculate_lot(last_data, data, flag):
         calc_lot = int(round(np.floor(balance * trade_risk / stop * 100) / 100, -3))
 
         flag["add-position"]["unit-size"] = int(np.floor(calc_lot / entry_times * 100) / 100)
-        flag["add-position"]["unit-range"] = round(volatility * entry_range)
+        flag["add-position"]["unit-range"] = round(volatility * entry_range, 4)
         flag["add-position"]["stop"] = stop
         flag["position"]["ATR"] = volatility
 
@@ -391,7 +416,7 @@ def add_position(data, flag):
         if should_add_position == True:
             flag["records"]["log"].append(
                 "\n前回のエントリー価格{0}円からブレイクアウトの方向に{1}ATR（{2}円）以上動きました\n".format(last_entry_price, entry_range,
-                                                                            round(unit_range)))
+                                                                            round(unit_range, 4)))
             flag["records"]["log"].append(
                 "{0}/{1}回目の追加注文を出します\n".format(flag["add-position"]["count"] + 1, entry_times))
 
@@ -446,9 +471,9 @@ def trail_stop(data, flag):
 
     # 高値／安値がエントリー価格からいくら離れたか計算
     if flag["position"]["side"] == "BUY":
-        moved_range = round(data["high_price"] - flag["position"]["price"], 3)
+        moved_range = data["high_price"] - flag["position"]["price"]
     if flag["position"]["side"] == "SELL":
-        moved_range = round(flag["position"]["price"] - data["low_price"], 3)
+        moved_range = flag["position"]["price"] - data["low_price"]
 
     # 最高値・最安値を更新したか調べる
     if moved_range < 0 or flag["position"]["stop-EP"] >= moved_range:
@@ -457,21 +482,20 @@ def trail_stop(data, flag):
         flag["position"]["stop-EP"] = moved_range
 
     # 加速係数に応じて損切りラインを動かす
-    flag["position"]["stop"] = round(
-        flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"])
+    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"]
 
     # 加速係数を更新する
-    flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 2)
+    flag["position"]["stop-AF"] = flag["position"]["stop-AF"] + stop_AF_add
     if flag["position"]["stop-AF"] >= stop_AF_max:
         flag["position"]["stop-AF"] = stop_AF_max
 
     # ログを出力する
     if flag["position"]["side"] == "BUY":
         flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] - flag["position"]["stop"]), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] - flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
     else:
         flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] + flag["position"]["stop"]), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] + flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
 
     return flag
 
@@ -511,7 +535,7 @@ def get_price_from_file(path):
 # 時間と高値・安値をログに記録する関数
 def log_price(data, flag):
     log = "時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M') + " 高値： " + str(data["high_price"])\
-           + " 安値： " + str(data["low_price"]) + "\n"
+           + " 安値： " + str(data["low_price"]) + " 終値： " + str(data["close_price"]) + "\n"
     flag["records"]["log"].append(log)
     return flag
 

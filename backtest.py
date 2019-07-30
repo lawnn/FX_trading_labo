@@ -457,7 +457,7 @@ def add_position(data, flag):
                 flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
 
             flag["records"]["log"].append("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
-            flag["records"]["log"].append("現在のポジションサイズは{}通貨です\n\n".format(flag["position"]["lot"]))
+            flag["records"]["log"].append("現在のポジションサイズは{}通貨です\n\n".format(round(flag["position"]["lot"])))
 
             flag["add-position"]["count"] += 1
             flag["add-position"]["last-entry-price"] = entry_price

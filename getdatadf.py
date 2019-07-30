@@ -96,6 +96,6 @@ minute = [30, 60, 120, 240, 480, 1440]
 # df.to_json("json/" + instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")
 for minute in minute:
     start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
-    end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+    end = datetime.strptime('2019-07-30 12:00:00', '%Y-%m-%d %H:%M:%S')
     df = get_period_data(start, end, minute, instrument=instrument)
     df.to_csv('csv/' + instrument + "_" + granularity + "_" + "2017.1.1" + ".csv")

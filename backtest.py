@@ -11,8 +11,8 @@ import numpy as np
 # -------------設定項目------------------------
 
 wait = 0                   # ループの待機時間
-buy_term = 45              # 買いエントリーのブレイク期間の設定
-sell_term = 45             # 売りエントリーのブレイク期間の設定
+buy_term = 15              # 買いエントリーのブレイク期間の設定
+sell_term = 15             # 売りエントリーのブレイク期間の設定
 
 judge_price = {
   "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
@@ -21,7 +21,7 @@ judge_price = {
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
 volatility_term = 3       # 平均ボラティリティの計算に使う期間
-stop_range = 2             # 何レンジ幅に損切（ストップ）を置くか
+stop_range = 10             # 何レンジ幅に損切（ストップ）を置くか
 trade_risk = 0.03          # 1トレードあたり口座の何％まで損失を許容するか
 leverage = 3               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
@@ -34,18 +34,20 @@ stop_AF = 0.02             # 加速係数
 stop_AF_add = 0.02         # 加速係数を増やす度合
 stop_AF_max = 0.2          # 加速係数の上限
 
-filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 75              # トレンドフィルターに使う移動平均線の期間
-long_EMA_term = 200
+filter_VER = "A"           # フィルター設定／OFFで無効
+MA_term = 200              # トレンドフィルターに使う移動平均線の期間
+long_EMA_term = 350
 short_EMA_term = 14
 
 accountID, token = exampleAuth()
 instrument = "EUR_JPY"
 params = {
     "count": 5000,
-    "granularity": "H1"
+    "granularity": "M30"
 }
-if params.get("granularity") == "H1":
+if params.get("granularity") == "M30":
+    chart_sec = 1800  # 30分足を使用
+elif params.get("granularity") == "H1":
     chart_sec = 3600  # 1時間足を使用
 elif params.get("granularity") == "H2":
     chart_sec = 7200  # 2時間足を使用
@@ -309,7 +311,7 @@ def calculate_MA(value, before=None):
         MA = sum(i["close_price"] for i in last_data[-1 * value:]) / value
     else:
         MA = sum(i["close_price"] for i in last_data[-1 * value + before: before]) / value
-    return round(MA)
+    return round(MA, 4)
 
 
 # 指数移動平均を計算する関数
@@ -324,7 +326,7 @@ def calculate_EMA( value,before=None ):
         EMA = (last_data[-1*value]["close_price"] * 2 / (value+1)) + (MA * (value-1) / (value+1))
         for i in range(value-1):
             EMA = (last_data[-1*value+1 + i]["close_price"] * 2 /(value+1)) + (EMA * (value-1) / (value+1))
-    return round(EMA)
+    return round(EMA, 4)
 
 
 # -------------資金管理の関数--------------
@@ -337,7 +339,7 @@ def calculate_lot(last_data, data, flag):
         lot = 10000
         volatility = calculate_volatility(last_data)
         stop = stop_range * volatility
-        flag["position"]["ATR"] = round(volatility)
+        flag["position"]["ATR"] = round(volatility, 4)
         return lot, stop, flag
 
     # 口座残高を取得する
@@ -347,8 +349,8 @@ def calculate_lot(last_data, data, flag):
     if flag["add-position"]["count"] == 0:
 
         # １回の注文単位（ロット数）と、追加ポジの基準レンジを計算する
-        volatility = calculate_volatility(last_data)
-        stop = stop_range * volatility
+        volatility = round(calculate_volatility(last_data), 4)
+        stop = round(stop_range * volatility, 4)
         calc_lot = int(round(np.floor(balance * trade_risk / stop * 100) / 100, -3))
 
         flag["add-position"]["unit-size"] = int(np.floor(calc_lot / entry_times * 100) / 100)
@@ -362,7 +364,7 @@ def calculate_lot(last_data, data, flag):
 
     # ２回目以降のエントリーの場合
     else:
-        balance = round(balance - flag["position"]["price"] * flag["position"]["lot"] / leverage)
+        balance = round(balance - flag["position"]["price"] * flag["position"]["lot"] / leverage, 4)
 
     # ストップ幅には、最初のエントリー時に計算したボラティリティを使う
     stop = flag["add-position"]["stop"]
@@ -444,9 +446,9 @@ def add_position(data, flag):
 
             # ポジション全体の情報を更新する
             flag["position"]["stop"] = stop
-            flag["position"]["price"] = int(round(
+            flag["position"]["price"] = float(round(
                 (flag["position"]["price"] * flag["position"]["lot"] + entry_price * lot) / (
-                            flag["position"]["lot"] + lot)))
+                            flag["position"]["lot"] + lot), 3))
             flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
 
             if flag["position"]["side"] == "BUY":
@@ -492,10 +494,10 @@ def trail_stop(data, flag):
     # ログを出力する
     if flag["position"]["side"] == "BUY":
         flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] - flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] - flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
     else:
         flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] + flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] + flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
 
     return flag
 

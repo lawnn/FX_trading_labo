@@ -315,17 +315,18 @@ def calculate_MA(value, before=None):
 
 
 # 指数移動平均を計算する関数
-def calculate_EMA( value,before=None ):
+def calculate_EMA(value, before=None):
     if before is not None:
-        MA = sum(i["close_price"] for i in last_data[-2*value + before : -1*value + before]) / value
-        EMA = (last_data[-1*value + before]["close_price"] * 2 / (value+1)) + (MA * (value-1) / (value+1))
-        for i in range(value-1):
-            EMA = (last_data[-1*value+before+1 + i]["close_price"] * 2 /(value+1)) + (EMA * (value-1) / (value+1))
+        MA = sum(i["close_price"] for i in last_data[-2 * value + before: -1 * value + before]) / value
+        EMA = (last_data[-1 * value + before]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
+        for i in range(value - 1):
+            EMA = (last_data[-1 * value + before + 1 + i]["close_price"] * 2 / (value + 1)) + (
+                        EMA * (value - 1) / (value + 1))
     else:
-        MA = sum(i["close_price"] for i in last_data[-2*value: -1*value]) / value
-        EMA = (last_data[-1*value]["close_price"] * 2 / (value+1)) + (MA * (value-1) / (value+1))
-        for i in range(value-1):
-            EMA = (last_data[-1*value+1 + i]["close_price"] * 2 /(value+1)) + (EMA * (value-1) / (value+1))
+        MA = sum(i["close_price"] for i in last_data[-2 * value: -1 * value]) / value
+        EMA = (last_data[-1 * value]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
+        for i in range(value - 1):
+            EMA = (last_data[-1 * value + 1 + i]["close_price"] * 2 / (value + 1)) + (EMA * (value - 1) / (value + 1))
     return round(EMA, 4)
 
 

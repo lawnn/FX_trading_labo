@@ -13,23 +13,23 @@ from datetime import datetime
 granularity_list = ['M30']  # テストに使う時間軸
 buy_term_list = [10, 15, 20]  # テストに使う上値ブレイクアウトの期間
 sell_term_list = [10, 15, 20]  # テストに使う下値ブレイクアウトの期間
-volatility_term_list = [5, 7, 10, 15]            # 平均ボラティリティの計算に使う期間
-stop_range_list = [5, 7, 10, 15, 20]  # 何レンジ幅にストップを入れるか
+volatility_term_list = [7, 10, 15]            # 平均ボラティリティの計算に使う期間
+stop_range_list = [10, 15, 20]  # 何レンジ幅にストップを入れるか
 entry_times_list = [4]  # 何回に分けて追加ポジションを取るか
 entry_range_list = [0.5]  # 何レンジごとに追加ポジションを取るか
-filter_VER_list = ["OFF", "A"]  # OFFで無効
-MA_term_list = [75, 100, 200]  # トレンドフィルターに使う移動平均線の期間
+filter_VER_list = ["A"]  # OFFで無効
+MA_term_list = [100, 200]  # トレンドフィルターに使う移動平均線の期間
 judge_price_list = [
     {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
     {"BUY": "high_price", "SELL": "low_price"}      # ブレイクアウト判定に高値・安値を使用
 ]
 # ---------------------------------------------------------------------------------------------
 
-TEST_MODE_LOT = "fixed"  # fixed なら常に10000通貨固定 / adjustable なら可変ロット
+TEST_MODE_LOT = "adjustable"  # fixed なら常に10000通貨固定 / adjustable なら可変ロット
 
 stop_range = 2  # 何レンジ幅にストップを入れるか
-trade_risk = 0.03  # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 5  # レバレッジ倍率の設定
+trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 10  # レバレッジ倍率の設定
 start_funds = 500000  # シミュレーション時の初期資金
 
 stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
@@ -43,7 +43,7 @@ long_EMA_term = 350
 short_EMA_term = 14
 
 accountID, token = exampleAuth()
-instrument = "GBP_JPY"
+instrument = "USD_JPY"
 params = {"count": 5000}
 
 

@@ -20,10 +20,10 @@ judge_price = {
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
-volatility_term = 3       # 平均ボラティリティの計算に使う期間
+volatility_term = 7       # 平均ボラティリティの計算に使う期間
 stop_range = 10             # 何レンジ幅に損切（ストップ）を置くか
-trade_risk = 0.03          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 3               # レバレッジ倍率の設定
+trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 10               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
 
 entry_times = 4            # 何回に分けて追加ポジションを取るか
@@ -40,7 +40,7 @@ long_EMA_term = 350
 short_EMA_term = 14
 
 accountID, token = exampleAuth()
-instrument = "EUR_JPY"
+instrument = "USD_JPY"
 params = {
     "count": 5000,
     "granularity": "M30"

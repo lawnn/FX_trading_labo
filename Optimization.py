@@ -10,14 +10,14 @@ from datetime import datetime
 # --------設定項目--------
 # バックテストのパラメーター設定
 # ---------------------------------------------------------------------------------------------
-granularity_list = ['M30']  # テストに使う時間軸
-buy_term_list = [10, 15, 20]  # テストに使う上値ブレイクアウトの期間
-sell_term_list = [10, 15, 20]  # テストに使う下値ブレイクアウトの期間
-volatility_term_list = [7, 10, 15]            # 平均ボラティリティの計算に使う期間
-stop_range_list = [10, 15, 20]  # 何レンジ幅にストップを入れるか
+granularity_list = ['M15']  # テストに使う時間軸
+buy_term_list = [10]  # テストに使う上値ブレイクアウトの期間
+sell_term_list = [10]  # テストに使う下値ブレイクアウトの期間
+volatility_term_list = [4, 6]           # 平均ボラティリティの計算に使う期間
+stop_range_list = [10, 11]  # 何レンジ幅にストップを入れるか
 entry_times_list = [4]  # 何回に分けて追加ポジションを取るか
 entry_range_list = [0.5]  # 何レンジごとに追加ポジションを取るか
-filter_VER_list = ["A"]  # OFFで無効
+filter_VER_list = ["OFF"]  # OFFで無効
 MA_term_list = [100, 200]  # トレンドフィルターに使う移動平均線の期間
 judge_price_list = [
     {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
@@ -27,7 +27,6 @@ judge_price_list = [
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に10000通貨固定 / adjustable なら可変ロット
 
-stop_range = 2  # 何レンジ幅にストップを入れるか
 trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
 leverage = 10  # レバレッジ倍率の設定
 start_funds = 500000  # シミュレーション時の初期資金
@@ -240,12 +239,15 @@ def filter(signal):
         return True
 
     if filter_VER == "A":
-        if len(last_data) < MA_term:
-            return True
-        if data["close_price"] > last_data[MA_term]["close_price"] and signal["side"] == "BUY":
-            return True
-        if data["close_price"] < last_data[MA_term]["close_price"] and signal["side"] == "SELL":
-            return True
+        try:
+            if len(last_data) < MA_term:
+                return True
+            if data["close_price"] > last_data[MA_term]["close_price"] and signal["side"] == "BUY":
+                return True
+            if data["close_price"] < last_data[MA_term]["close_price"] and signal["side"] == "SELL":
+                return True
+        except IndexError as e:
+            print(str(e))
 
     if filter_VER == "B":
         if len(last_data) < MA_term:
@@ -790,7 +792,13 @@ for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,
             last_data = []
             i = 0
             need_term = max(buy_term, sell_term, volatility_term)
-            if granularity == "M30":
+            if granularity == "M1":
+                chart_sec = 60  # 1分足を使用
+            elif granularity == "M5":
+                chart_sec = 300  # 5分足を使用
+            elif granularity == "M15":
+                chart_sec = 900  # 15分足を使用
+            elif granularity == "M30":
                 chart_sec = 1800  # 30分足を使用
             elif granularity == "H1":
                 chart_sec = 3600  # 1時間足を使用
@@ -914,7 +922,13 @@ for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,
         last_data = []
         i = 0
         need_term = max(buy_term, sell_term, volatility_term)
-        if granularity == "M30":
+        if granularity == "M1":
+            chart_sec = 60  # 1分足を使用
+        elif granularity == "M5":
+            chart_sec = 300  # 5分足を使用
+        elif granularity == "M15":
+            chart_sec = 900  # 15分足を使用
+        elif granularity == "M30":
             chart_sec = 1800  # 30分足を使用
         elif granularity == "H1":
             chart_sec = 3600  # 1時間足を使用

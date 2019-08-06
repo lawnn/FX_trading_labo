@@ -11,17 +11,17 @@ import numpy as np
 # -------------設定項目------------------------
 
 wait = 0                   # ループの待機時間
-buy_term = 15              # 買いエントリーのブレイク期間の設定
-sell_term = 15             # 売りエントリーのブレイク期間の設定
+buy_term = 10              # 買いエントリーのブレイク期間の設定
+sell_term = 10             # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "close_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "close_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
+  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
-volatility_term = 7       # 平均ボラティリティの計算に使う期間
-stop_range = 10             # 何レンジ幅に損切（ストップ）を置くか
+volatility_term = 4       # 平均ボラティリティの計算に使う期間
+stop_range = 11             # 何レンジ幅に損切（ストップ）を置くか
 trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
 leverage = 10               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
@@ -34,8 +34,8 @@ stop_AF = 0.02             # 加速係数
 stop_AF_add = 0.02         # 加速係数を増やす度合
 stop_AF_max = 0.2          # 加速係数の上限
 
-filter_VER = "A"           # フィルター設定／OFFで無効
-MA_term = 200              # トレンドフィルターに使う移動平均線の期間
+filter_VER = "OFF"           # フィルター設定／OFFで無効
+MA_term = 100              # トレンドフィルターに使う移動平均線の期間
 long_EMA_term = 350
 short_EMA_term = 14
 
@@ -43,9 +43,15 @@ accountID, token = exampleAuth()
 instrument = "USD_JPY"
 params = {
     "count": 5000,
-    "granularity": "M30"
+    "granularity": "M15"
 }
-if params.get("granularity") == "M30":
+if params.get("granularity") == "M1":
+    chart_sec = 1800  # 1分足を使用
+elif params.get("granularity") == "M5":
+    chart_sec = 1800  # 5分足を使用
+elif params.get("granularity") == "M15":
+    chart_sec = 900  # 15分足を使用
+elif params.get("granularity") == "M30":
     chart_sec = 1800  # 30分足を使用
 elif params.get("granularity") == "H1":
     chart_sec = 3600  # 1時間足を使用

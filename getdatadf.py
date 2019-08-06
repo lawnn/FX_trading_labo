@@ -1,6 +1,7 @@
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import pandas as pd
+import time
 from datetime import datetime
 from auth import exampleAuth
 
@@ -54,6 +55,7 @@ def send_api(count, start, minute, instrument):
         params['from'] = start
     r = instruments.InstrumentsCandles(instrument=instrument, params=params)
     response = api.request(r)
+    time.sleep(5)
 
     # レスポンスの整形
     def join_json(candle):
@@ -86,8 +88,8 @@ def send_api(count, start, minute, instrument):
 
 
 accountID, token = exampleAuth()
-instrument = 'GBP_JPY'
-minute = [30, 60, 120, 240, 480, 1440]
+instrument = 'USD_JPY'
+minute = [1, 5]
 # start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # df = get_period_data(start, end, minute, instrument=instrument)
@@ -95,6 +97,7 @@ minute = [30, 60, 120, 240, 480, 1440]
 # df.to_csv(instrument + "_" + granularity + "_" + "2018" + ".csv")
 # df.to_json("json/" + instrument + "_" + str(minute) + "_" + "2018" + ".json", orient="index")
 for minute in minute:
+    print('通貨【{0}】,時間軸{1}分のデータ取得中'.format(instrument, str(minute)))
     start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
     end = datetime.strptime('2019-07-30 12:00:00', '%Y-%m-%d %H:%M:%S')
     df = get_period_data(start, end, minute, instrument=instrument)

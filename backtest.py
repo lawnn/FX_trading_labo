@@ -23,19 +23,19 @@ TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable な
 volatility_term = 4       # 平均ボラティリティの計算に使う期間
 stop_range = 11             # 何レンジ幅に損切（ストップ）を置くか
 trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 10               # レバレッジ倍率の設定
+leverage = 25               # レバレッジ倍率の設定
 start_funds = 500000       # シミュレーション時の初期資金
 
 entry_times = 4            # 何回に分けて追加ポジションを取るか
 entry_range = 0.5            # 何レンジごとに追加ポジションを取るか
 
 stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
-stop_AF = 0.02             # 加速係数
-stop_AF_add = 0.02         # 加速係数を増やす度合
-stop_AF_max = 0.2          # 加速係数の上限
+stop_AF = 0.01             # 加速係数
+stop_AF_add = 0.01         # 加速係数を増やす度合
+stop_AF_max = 0.1          # 加速係数の上限
 
-filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 100              # トレンドフィルターに使う移動平均線の期間
+filter_VER = "B"           # フィルター設定／OFFで無効
+MA_term = 30              # トレンドフィルターに使う移動平均線の期間
 long_EMA_term = 350
 short_EMA_term = 14
 
@@ -512,9 +512,9 @@ def trail_stop(data, flag):
 # -------------価格APIの関数--------------
 # oandaのapiを使用する関数
 def get_price():
-    client = API(access_token=token)
+    api = API(access_token=token)
     r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-    data = client.request(r)
+    data = api.request(r)
     if data["candles"] is not None:
         price = [{"close_time": data["candles"][i]['time'],
                   "close_time_dt": dateutil.parser.parse(data["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),

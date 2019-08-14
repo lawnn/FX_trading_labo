@@ -36,8 +36,8 @@ stop_AF_max = 0.1          # 加速係数の上限
 
 filter_VER = "B"           # フィルター設定／OFFで無効
 MA_term = 30              # トレンドフィルターに使う移動平均線の期間
-long_EMA_term = 350
-short_EMA_term = 14
+Long_EMA_term = 42
+Short_EMA_term = 21
 
 accountID, token = exampleAuth()
 instrument = "USD_JPY"
@@ -302,11 +302,11 @@ def filter(signal):
             return True
 
     if filter_VER == "C":
-        if len(last_data) < (long_EMA_term * 2):
+        if len(last_data) < (Long_EMA_term * 2):
             return True
-        if calculate_EMA(long_EMA_term) < calculate_EMA(short_EMA_term) and signal["side"] == "BUY":
+        if calculate_EMA(Long_EMA_term) < calculate_EMA(Short_EMA_term) and signal["side"] == "BUY":
             return True
-        if calculate_EMA(long_EMA_term) > calculate_EMA(short_EMA_term) and signal["side"] == "SELL":
+        if calculate_EMA(Long_EMA_term) > calculate_EMA(Short_EMA_term) and signal["side"] == "SELL":
             return True
     return False
 

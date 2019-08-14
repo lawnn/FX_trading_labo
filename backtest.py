@@ -36,8 +36,8 @@ stop_AF_max = 0.1          # 加速係数の上限
 
 filter_VER = "B"           # フィルター設定／OFFで無効
 MA_term = 30              # トレンドフィルターに使う移動平均線の期間
-Long_EMA_term = 42
-Short_EMA_term = 21
+Long_EMA_term = 14
+Short_EMA_term = 7
 
 accountID, token = exampleAuth()
 instrument = "USD_JPY"

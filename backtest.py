@@ -737,7 +737,7 @@ def backtest(flag):
         print("月末資金           :  {}円".format(row.Funds.astype(int)))
 
     # 際立った損益を表示
-    n = 10
+    n = 1
     print("------------------------------------------")
     print("＋{}%を超えるトレードの回数  :  {}回".format(n, len(records[records.Rate > n])))
     print("------------------------------------------")

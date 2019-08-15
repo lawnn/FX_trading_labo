@@ -89,7 +89,7 @@ def send_api(count, start, minute, instrument):
 
 accountID, token = exampleAuth()
 instrument = 'USD_JPY'
-minute = [1, 5]
+minute = [15]
 # start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # end = datetime.strptime('2019-06-01 00:00:00', '%Y-%m-%d %H:%M:%S')
 # df = get_period_data(start, end, minute, instrument=instrument)
@@ -99,6 +99,6 @@ minute = [1, 5]
 for minute in minute:
     print('通貨【{0}】,時間軸{1}分のデータ取得中'.format(instrument, str(minute)))
     start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
-    end = datetime.strptime('2019-07-30 12:00:00', '%Y-%m-%d %H:%M:%S')
+    end = datetime.strptime('2019-08-15 00:00:00', '%Y-%m-%d %H:%M:%S')
     df = get_period_data(start, end, minute, instrument=instrument)
     df.to_csv('csv/' + instrument + "_" + granularity + "_" + "2017.1.1" + ".csv")

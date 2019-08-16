@@ -514,6 +514,40 @@ def get_price():
         return None
 
 
+# OANDAのチャート価格をAPIで取得する関数（リアルタイム用）
+def get_realtime_price():
+    instrument = "USD_JPY"
+    params = {
+        "count": 5000,
+        "granularity": "M15"
+    }
+    while True:
+        try:
+            api = API(access_token=token)
+            r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+            rv = api.request(r)
+            return {
+                "settled": {
+                    "close_time": rv["candles"][-2]['time'],
+                    "open_price": round(float(rv["candles"][-2]["mid"]['o']), 3),
+                    "high_price": round(float(rv["candles"][-2]["mid"]['h']), 3),
+                    "low_price": round(float(rv["candles"][-2]["mid"]['l']), 3),
+                    "close_price": round(float(rv["candles"][-2]["mid"]['c']), 3)
+                            },
+                "forming": {"close_time": rv["candles"][-1]['time'],
+                            "open_price": round(float(rv["candles"][-1]["mid"]['o']), 3),
+                            "high_price": round(float(rv["candles"][-1]["mid"]['h']), 3),
+                            "low_price": round(float(rv["candles"][-1]["mid"]['l']), 3),
+                            "close_price": round(float(rv["candles"][-1]["mid"]['c']), 3)
+                            }
+            }
+
+        except requests.exceptions.RequestException as e:
+            print_log("OANDAの価格取得でエラー発生 : " + str(e))
+            print_log("{}秒待機してやり直します".format(wait))
+            time.sleep(wait)
+
+
 # -------------その他の補助関数--------------
 # 時間と高値・安値・終値を表示する関数
 def print_price(data):

@@ -582,7 +582,7 @@ def print_log(text):
 # -------------Oanda APIと通信する関数--------------
 # OANDA APIに成り行き注文する関数
 def oanda_market(side, lot):
-    global accountBalance
+    global accountBalance, units
     # lotが買いか売りを判定する
     if side == "BUY":
         units = lot
@@ -591,8 +591,7 @@ def oanda_market(side, lot):
 
     # 注文内容
     order = {'order': {
-        # "price": "100.550",
-        "instrument": "USD_JPY",
+        "instrument": currency,
         "units": units,
         "type": "MARKET",
         "positionFill": "DEFAULT"
@@ -670,10 +669,8 @@ def oanda_collateral():
             r = accounts.AccountSummary(accountID)
             rv = api.request(r)
             balance = rv['account']['balance']
-            spendable_collateral = float(accountBalance)
             print('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-            print("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
-            return int(spendable_collateral)
+            print("新規注文に利用可能な証拠金の額は{}円です".format(int(float(accountBalance))))
 
         except V20Error as e:
             print("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))

@@ -638,8 +638,6 @@ def oanda_market(side, lot):
                     print("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
                     time.sleep(20)
 
-    return units
-
 
 # 注文決済する関数
 def oanda_close_positions(side):

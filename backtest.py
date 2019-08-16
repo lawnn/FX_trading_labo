@@ -121,7 +121,7 @@ def entry_signal(data, last_data, flag):
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
+        if lot >= 1:
             flag["records"]["log"].append("{0}円で{1}通貨の買い注文を出します\n".format(data["close_price"], lot))
 
             # ここに買い注文のコードを入れる
@@ -144,7 +144,7 @@ def entry_signal(data, last_data, flag):
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
+        if lot >= 1:
             flag["records"]["log"].append("{0}円で{1}通貨の売り注文を出します\n".format(data["close_price"], lot))
 
             # ここに売り注文のコードを入れる
@@ -231,7 +231,7 @@ def close_position(data, last_data, flag):
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot >= 0.01:
+            if lot >= 1:
                 flag["records"]["log"].append("\n{0}円で{1}通貨の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
@@ -264,7 +264,7 @@ def close_position(data, last_data, flag):
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot > 0.01:
+            if lot >= 1:
                 flag["records"]["log"].append("\n{0}円で{1}通貨の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
@@ -431,7 +431,7 @@ def add_position(data, flag):
 
             # 注文サイズを計算
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot < 0.01:
+            if lot <= 1:
                 flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
                 flag["add-position"]["count"] += 1
                 return flag

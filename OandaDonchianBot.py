@@ -21,8 +21,8 @@ buy_term = 10  # 買いエントリーのブレイク期間の設定
 sell_term = 10  # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
-    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+    "BUY": "close_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
+    "SELL": "close_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット

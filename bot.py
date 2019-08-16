@@ -588,54 +588,41 @@ def print_log(text):
 
 
 # ------------ここからメイン処理の記述--------------
-# 価格チャートを取得
+
+# 最低限、保持が必要なローソク足の期間を準備
+
+need_term = max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2)
+print_log("{}期間分のデータの準備中".format(need_term))
+
 price = get_price()
+last_data = price[-1 * need_term - 2:-2]
+print_price(last_data[-1])
+print_log("--{}秒待機--".format(wait))
+time.sleep(wait)
 
-last_data = []
-need_term = max(buy_term, sell_term, volatility_term)
-i = 0
-while i < len(price):
+print_log("---実行開始---")
 
-    # ドンチャンの判定に使う期間分の安値・高値データを準備する
-    if len(last_data) < need_term:
-        last_data.append(price[i])
-        flag = log_price(price[i], flag)
-        time.sleep(wait)
-        i += 1
-        continue
+while True:
 
-    data = price[i]
-    flag = log_price(data, flag)
+    # 最新のローソク足を取得して表示
+    data = get_realtime_price()
+    if data["settled"]["close_time"] > last_data[-1]["close_time"]:
+        print_price(data["settled"])
 
     # ポジションがある場合
     if flag["position"]["exist"]:
-
-        # 終値がポジションと同じ方向に動いた場合
-        # 買いなら（安値⇒高値）の順、売りなら（高値⇒安値）の順に適用
-
-        if (flag["position"]["side"] == "BUY" and data["open_price"] < data["close_price"]) \
-                or (flag["position"]["side"] == "SELL" and data["open_price"] > data["close_price"]):
-
-            if stop_config != "OFF":
-                flag = stop_position(data, flag)
-            flag = close_position(data, last_data, flag)
-            flag = add_position(data, flag)
-            flag = trail_stop(data, flag)
-
-        # 終値がポジションと逆の方向に動いた場合
-        # 買いなら（高値⇒安値）の順、売りなら（安値⇒高値）の順に適用
-
-        else:
-
-            flag = add_position(data, flag)
-            flag = trail_stop(data, flag)
-            flag = stop_position(data, flag)
-            flag = close_position(data, last_data, flag)
+        flag = stop_position(data, flag)
+        flag = close_position(data, last_data, flag)
+        flag = add_position(data, flag)
 
     # ポジションがない場合
     else:
         flag = entry_signal(data, last_data, flag)
 
-    last_data.append(data)
-    i += 1
+    # 確定足が更新された場合
+    if data["settled"]["close_time"] > last_data[-1]["close_time"]:
+        last_data.append(data["settled"])
+        if len(last_data) > need_term:
+            del last_data[0]
+
     time.sleep(wait)

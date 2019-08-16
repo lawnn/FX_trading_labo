@@ -13,7 +13,7 @@ import numpy as np
 
 # -------------設定項目------------------------
 
-wait = 0  # ループの待機時間
+wait = 15  # ループの待機時間
 buy_term = 10  # 買いエントリーのブレイク期間の設定
 sell_term = 10  # 売りエントリーのブレイク期間の設定
 
@@ -110,7 +110,7 @@ def entry_signal(data, last_data, flag):
 
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
-        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました".format(buy_term, signal["price"],
+        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円で上にブレイクしました".format(buy_term, signal["price"],
                                                                data["forming"][judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
@@ -133,7 +133,7 @@ def entry_signal(data, last_data, flag):
             print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
     if signal["side"] == "SELL":
-        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました".format(sell_term, signal["price"],
+        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円で下にブレイクしました".format(sell_term, signal["price"],
                                                                data["forming"][judge_price["SELL"]]))
         # フィルター条件を確認
         if filter(signal) == False:
@@ -580,7 +580,6 @@ def print_log(text):
 # -------------Oanda APIと通信する関数--------------
 # OANDA APIに成り行き注文する関数
 def oanda_market(side, lot):
-    global accountBalance
     # lotが買いか売りを判定する
     if side == "BUY":
         units = lot
@@ -668,7 +667,7 @@ def oanda_collateral():
             rv = api.request(r)
             balance = rv['account']['balance']
             print('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-            print("新規注文に利用可能な証拠金の額は{}円です".format(int(float(accountBalance))))
+            print("新規注文に利用可能な証拠金の額は{}円です".format(int(float(balance))))
 
         except V20Error as e:
             print("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))

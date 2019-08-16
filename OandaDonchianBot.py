@@ -582,7 +582,7 @@ def print_log(text):
 # -------------Oanda APIと通信する関数--------------
 # OANDA APIに成り行き注文する関数
 def oanda_market(side, lot):
-    global accountBalance, units
+    global accountBalance
     # lotが買いか売りを判定する
     if side == "BUY":
         units = lot
@@ -637,6 +637,8 @@ def oanda_market(side, lot):
                 except V20Error as e:
                     print("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
                     time.sleep(20)
+
+    return units
 
 
 # 注文決済する関数

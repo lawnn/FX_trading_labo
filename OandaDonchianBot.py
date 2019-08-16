@@ -3,6 +3,10 @@ import requests
 from logging import getLogger, Formatter, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
+from oandapyV20.exceptions import V20Error
+import oandapyV20.endpoints.orders as orders
+import oandapyV20.endpoints.accounts as accounts
+import oandapyV20.endpoints.positions as positions
 import dateutil.parser
 from datetime import datetime
 import time
@@ -46,23 +50,8 @@ log_config = "ON"  # ログファイルを出力するかの設定
 log_file_path = "c:/Pydoc/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
 
 accountID, token, line_token = exampleAuth()
-instrument = "USD_JPY"
-params = {
-    "count": 5000,
-    "granularity": "M15"
-}
-if params.get("granularity") == "M1":
-    chart_sec = 1800  # 1分足を使用
-elif params.get("granularity") == "M5":
-    chart_sec = 1800  # 5分足を使用
-elif params.get("granularity") == "M15":
-    chart_sec = 900  # 15分足を使用
-elif params.get("granularity") == "M30":
-    chart_sec = 1800  # 30分足を使用
-elif params.get("granularity") == "H1":
-    chart_sec = 3600  # 1時間足を使用
-elif params.get("granularity") == "H2":
-    chart_sec = 7200  # 2時間足を使用
+currency = "USD_JPY"
+gran = "M15"
 
 # -------------ログ機能の設定--------------------
 
@@ -497,16 +486,20 @@ def trail_stop(data, flag):
 # -------------価格APIの関数--------------
 # oandaのapiを使用する関数
 def get_price():
+    params = {
+        "count": max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2),
+        "granularity": gran
+    }
     api = API(access_token=token)
-    r = instruments.InstrumentsCandles(instrument=instrument, params=params)
-    data = api.request(r)
-    if data["candles"] is not None:
-        price = [{"close_time": data["candles"][i]['time'],
-                  "close_time_dt": dateutil.parser.parse(data["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
-                  "open_price": round(float(data["candles"][i]["mid"]['o']), 3),
-                  "high_price": round(float(data["candles"][i]["mid"]['h']), 3),
-                  "low_price": round(float(data["candles"][i]["mid"]['l']), 3),
-                  "close_price": round(float(data["candles"][i]["mid"]['c']), 3)}
+    r = instruments.InstrumentsCandles(instrument=currency, params=params)
+    rv = api.request(r)
+    if rv["candles"] is not None:
+        price = [{"close_time": rv["candles"][i]['time'],
+                  "close_time_dt": dateutil.parser.parse(rv["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
+                  "open_price": round(float(rv["candles"][i]["mid"]['o']), 3),
+                  "high_price": round(float(rv["candles"][i]["mid"]['h']), 3),
+                  "low_price": round(float(rv["candles"][i]["mid"]['l']), 3),
+                  "close_price": round(float(rv["candles"][i]["mid"]['c']), 3)}
                  for i in range(params['count'])]
         return price
     else:
@@ -516,15 +509,14 @@ def get_price():
 
 # OANDAのチャート価格をAPIで取得する関数（リアルタイム用）
 def get_realtime_price():
-    instrument = "USD_JPY"
     params = {
-        "count": 5000,
-        "granularity": "M15"
+        "count": max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2),
+        "granularity": gran
     }
     while True:
         try:
             api = API(access_token=token)
-            r = instruments.InstrumentsCandles(instrument=instrument, params=params)
+            r = instruments.InstrumentsCandles(instrument=currency, params=params)
             rv = api.request(r)
             return {
                 "settled": {
@@ -533,7 +525,7 @@ def get_realtime_price():
                     "high_price": round(float(rv["candles"][-2]["mid"]['h']), 3),
                     "low_price": round(float(rv["candles"][-2]["mid"]['l']), 3),
                     "close_price": round(float(rv["candles"][-2]["mid"]['c']), 3)
-                            },
+                },
                 "forming": {"close_time": rv["candles"][-1]['time'],
                             "open_price": round(float(rv["candles"][-1]["mid"]['o']), 3),
                             "high_price": round(float(rv["candles"][-1]["mid"]['h']), 3),
@@ -587,8 +579,109 @@ def print_log(text):
         print(text)
 
 
-# ------------ここからメイン処理の記述--------------
+# -------------Oanda APIと通信する関数--------------
+# OANDA APIに成り行き注文する関数
+def oanda_market(side, lot):
+    global accountBalance
+    # lotが買いか売りを判定する
+    if side == "BUY":
+        units = lot
+    if side == "SELL":
+        units = -1 * lot
 
+    # 注文内容
+    order = {'order': {
+        # "price": "100.550",
+        "instrument": "USD_JPY",
+        "units": units,
+        "type": "MARKET",
+        "positionFill": "DEFAULT"
+    }}
+
+    # API取得
+    api = API(access_token=token)
+    order = orders.OrderCreate(accountID, data=order)
+    position = positions.OpenPositions(accountID=accountID)
+
+    while True:
+
+        # 注文実行
+        executions = api.request(order)  # API元にrequestを送る(order)
+        position = api.request(position)  # API元にrequestを送る(position)
+        accountBalance = executions['orderFillTransaction']['accountBalance']
+        print(order)
+        time.sleep(30)
+
+        # 執行状況を確認
+        if units > 0:
+            while True:
+                try:
+                    average_price = position['positions'][0]['long']['averagePrice']
+                    print("注文がすべて約定するのを待っています")
+                    time.sleep(20)
+                    print("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
+                    return average_price
+
+                except V20Error as e:
+                    print("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
+                    time.sleep(20)
+
+        elif units < 0:
+            while True:
+                try:
+                    average_price = position['positions'][0]['short']['averagePrice']
+                    print("注文がすべて約定するのを待っています")
+                    time.sleep(20)
+                    print("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
+                    return average_price
+
+                except V20Error as e:
+                    print("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
+                    time.sleep(20)
+
+
+# 注文決済する関数
+def oanda_close_positions(side):
+    # API取得
+    api = API(access_token=token)
+
+    # 注文内容
+    if side == "BUY":
+        order_data = {"longUnits": "ALL"}
+    if side == "SELL":
+        order_data = {"shortUnits": "ALL"}
+
+    # 注文実行
+    try:
+        r = positions.PositionClose(accountID, instrument=currency, data=order_data)
+        api.request(r)
+        print("\nすべての建玉を決済しました\n決済価格は平均 {}円です".format(str(data["forming"]["low_price"])))
+    except V20Error as e:
+        print("\nOANDAのAPIで問題発生\n" + str(e) + "\nやり直します")
+        print_log("20秒待機してやり直します")
+        time.sleep(20)
+
+
+# 口座残高を取得する関数
+def oanda_collateral():
+    while True:
+        try:
+            api = API(access_token=token)
+            r = accounts.AccountSummary(accountID)
+            rv = api.request(r)
+            balance = rv['account']['balance']
+            spendable_collateral = float(accountBalance)
+            print('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
+            print("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
+            return int(spendable_collateral)
+
+        except V20Error as e:
+            print("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))
+            print("20秒待機してやり直します")
+            time.sleep(20)
+
+
+# ------------ここからメイン処理の記述--------------
 # 最低限、保持が必要なローソク足の期間を準備
 
 need_term = max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2)

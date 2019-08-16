@@ -10,32 +10,32 @@ import numpy as np
 
 # -------------設定項目------------------------
 
-wait = 0                   # ループの待機時間
-buy_term = 10              # 買いエントリーのブレイク期間の設定
-sell_term = 10             # 売りエントリーのブレイク期間の設定
+wait = 0  # ループの待機時間
+buy_term = 10  # 買いエントリーのブレイク期間の設定
+sell_term = 10  # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
+    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
-volatility_term = 4       # 平均ボラティリティの計算に使う期間
-stop_range = 11             # 何レンジ幅に損切（ストップ）を置くか
-trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 25               # レバレッジ倍率の設定
-start_funds = 500000       # シミュレーション時の初期資金
+volatility_term = 4  # 平均ボラティリティの計算に使う期間
+stop_range = 11  # 何レンジ幅に損切（ストップ）を置くか
+trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 25  # レバレッジ倍率の設定
+start_funds = 500000  # シミュレーション時の初期資金
 
-entry_times = 4            # 何回に分けて追加ポジションを取るか
-entry_range = 0.5            # 何レンジごとに追加ポジションを取るか
+entry_times = 4  # 何回に分けて追加ポジションを取るか
+entry_range = 0.5  # 何レンジごとに追加ポジションを取るか
 
-stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
-stop_AF = 0.01             # 加速係数
-stop_AF_add = 0.01         # 加速係数を増やす度合
-stop_AF_max = 0.1          # 加速係数の上限
+stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
+stop_AF = 0.01  # 加速係数
+stop_AF_add = 0.01  # 加速係数を増やす度合
+stop_AF_max = 0.1  # 加速係数の上限
 
-filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 30              # トレンドフィルターに使う移動平均線の期間
+filter_VER = "OFF"  # フィルター設定／OFFで無効
+MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
@@ -327,7 +327,7 @@ def calculate_EMA(value, before=None):
         EMA = (last_data[-1 * value + before]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
         for i in range(value - 1):
             EMA = (last_data[-1 * value + before + 1 + i]["close_price"] * 2 / (value + 1)) + (
-                        EMA * (value - 1) / (value + 1))
+                    EMA * (value - 1) / (value + 1))
     else:
         MA = sum(i["close_price"] for i in last_data[-2 * value: -1 * value]) / value
         EMA = (last_data[-1 * value]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
@@ -455,7 +455,7 @@ def add_position(data, flag):
             flag["position"]["stop"] = stop
             flag["position"]["price"] = float(round(
                 (flag["position"]["price"] * flag["position"]["lot"] + entry_price * lot) / (
-                            flag["position"]["lot"] + lot), 3))
+                        flag["position"]["lot"] + lot), 3))
             flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
 
             if flag["position"]["side"] == "BUY":
@@ -491,7 +491,8 @@ def trail_stop(data, flag):
         flag["position"]["stop-EP"] = moved_range
 
     # 加速係数に応じて損切りラインを動かす
-    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"]
+    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"][
+        "stop-AF"]
 
     # 加速係数を更新する
     flag["position"]["stop-AF"] = flag["position"]["stop-AF"] + stop_AF_add
@@ -543,8 +544,9 @@ def get_price_from_file(path):
 
 # 時間と高値・安値をログに記録する関数
 def log_price(data, flag):
-    log = "時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M') + " 高値： " + str(data["high_price"])\
-           + " 安値： " + str(data["low_price"]) + " 終値： " + str(data["close_price"]) + "\n"
+    log = "時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M') + " 高値： " + str(
+        data["high_price"]) \
+          + " 安値： " + str(data["low_price"]) + " 終値： " + str(data["close_price"]) + "\n"
     flag["records"]["log"].append(log)
     return flag
 
@@ -575,7 +577,6 @@ def records(flag, data, close_price, close_type=None):
     # 取引手数料等の計算
     entry_price = int(round(flag["position"]["price"] * flag["position"]["lot"]))
     exit_price = int(round(close_price * flag["position"]["lot"]))
-
 
     # 手仕舞った日時と保有期間を記録
     flag["records"]["date"].append(data["close_time_dt"])
@@ -774,7 +775,6 @@ def backtest(flag):
 pd.plotting.register_matplotlib_converters()
 # price = get_price()
 price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2017.1.1' + '.csv')
-
 
 last_data = []
 need_term = max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2)

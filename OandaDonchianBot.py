@@ -660,19 +660,18 @@ def oanda_close_positions(side):
 
 # 口座残高を取得する関数
 def oanda_collateral():
-    while True:
-        try:
-            api = API(access_token=token)
-            r = accounts.AccountSummary(accountID)
-            rv = api.request(r)
-            balance = rv['account']['balance']
-            print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-            print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(float(balance))))
+    try:
+        api = API(access_token=token)
+        r = accounts.AccountSummary(accountID)
+        rv = api.request(r)
+        balance = rv['account']['balance']
+        print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
+        print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(float(balance))))
 
-        except V20Error as e:
-            print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))
-            print_log("20秒待機してやり直します")
-            time.sleep(20)
+    except V20Error as e:
+        print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))
+        print_log("20秒待機してやり直します")
+        time.sleep(20)
 
 
 # ------------ここからメイン処理の記述--------------

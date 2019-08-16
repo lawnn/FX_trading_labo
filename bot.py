@@ -1,4 +1,6 @@
 from auth import exampleAuth
+import requests
+from logging import getLogger, Formatter, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import dateutil.parser
@@ -10,36 +12,40 @@ import numpy as np
 
 # -------------設定項目------------------------
 
-wait = 0                   # ループの待機時間
-buy_term = 10              # 買いエントリーのブレイク期間の設定
-sell_term = 10             # 売りエントリーのブレイク期間の設定
+wait = 0  # ループの待機時間
+buy_term = 10  # 買いエントリーのブレイク期間の設定
+sell_term = 10  # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-  "BUY": "high_price",    # ブレイク判断　高値（high_price)か終値（close_price）を使用
-  "SELL": "low_price"    # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
+    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
-volatility_term = 4       # 平均ボラティリティの計算に使う期間
-stop_range = 11             # 何レンジ幅に損切（ストップ）を置くか
-trade_risk = 0.05          # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 25               # レバレッジ倍率の設定
-start_funds = 500000       # シミュレーション時の初期資金
+volatility_term = 4  # 平均ボラティリティの計算に使う期間
+stop_range = 11  # 何レンジ幅に損切（ストップ）を置くか
+trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
+leverage = 25  # レバレッジ倍率の設定
+start_funds = 500000  # シミュレーション時の初期資金
 
-entry_times = 4            # 何回に分けて追加ポジションを取るか
-entry_range = 0.5            # 何レンジごとに追加ポジションを取るか
+entry_times = 4  # 何回に分けて追加ポジションを取るか
+entry_range = 0.5  # 何レンジごとに追加ポジションを取るか
 
-stop_config = "TRAILING"         # ON / OFF / TRAILING の３つが設定可
-stop_AF = 0.01             # 加速係数
-stop_AF_add = 0.01         # 加速係数を増やす度合
-stop_AF_max = 0.1          # 加速係数の上限
+stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
+stop_AF = 0.01  # 加速係数
+stop_AF_add = 0.01  # 加速係数を増やす度合
+stop_AF_max = 0.1  # 加速係数の上限
 
-filter_VER = "OFF"           # フィルター設定／OFFで無効
-MA_term = 30              # トレンドフィルターに使う移動平均線の期間
+filter_VER = "OFF"  # フィルター設定／OFFで無効
+MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
-accountID, token = exampleAuth()
+line_config = "ON"  # LINE通知をするかどうかの設定
+log_config = "ON"  # ログファイルを出力するかの設定
+log_file_path = "c:/Pydoc/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
+
+accountID, token, line_token = exampleAuth()
 instrument = "USD_JPY"
 params = {
     "count": 5000,
@@ -57,6 +63,19 @@ elif params.get("granularity") == "H1":
     chart_sec = 3600  # 1時間足を使用
 elif params.get("granularity") == "H2":
     chart_sec = 7200  # 2時間足を使用
+
+# -------------ログ機能の設定--------------------
+
+# ログ機能の設定箇所
+if log_config == "ON":
+    logger = getLogger(__name__)
+    handlerSh = StreamHandler()
+    handlerFile = FileHandler(log_file_path)
+    handlerSh.setLevel(INFO)
+    handlerFile.setLevel(INFO)
+    logger.setLevel(INFO)
+    logger.addHandler(handlerSh)
+    logger.addHandler(handlerFile)
 
 flag = {
     "position": {
@@ -103,49 +122,49 @@ def entry_signal(data, last_data, flag):
 
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
-        flag["records"]["log"].append(
+        print_log(
             "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
-            flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}通貨の買い注文を出します\n".format(data["close_price"], lot))
+            print_log("{0}円で{1}通貨の買い注文を出します\n".format(data["close_price"], lot))
 
             # ここに買い注文のコードを入れる
 
-            flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] - stop))
+            print_log("{0}円にストップを入れます\n".format(data["close_price"] - stop))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "BUY"
             flag["position"]["price"] = data["close_price"]
         else:
-            flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
 
     if signal["side"] == "SELL":
-        flag["records"]["log"].append(
+        print_log(
             "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
 
         # フィルター条件を確認
         if filter(signal) == False:
-            flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot > 0.01:
-            flag["records"]["log"].append("{0}円で{1}通貨の売り注文を出します\n".format(data["close_price"], lot))
+            print_log("{0}円で{1}通貨の売り注文を出します\n".format(data["close_price"], lot))
 
             # ここに売り注文のコードを入れる
 
-            flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] + stop))
+            print_log("{0}円にストップを入れます\n".format(data["close_price"] + stop))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "SELL"
             flag["position"]["price"] = data["close_price"]
         else:
-            flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
 
     return flag
 
@@ -159,9 +178,9 @@ def stop_position(data, flag):
     if flag["position"]["side"] == "BUY":
         stop_price = flag["position"]["price"] - flag["position"]["stop"]
         if data["low_price"] < stop_price:
-            flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
+            print_log("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
             stop_price = round(stop_price - 4 * calculate_volatility(last_data) / (chart_sec / 60), 4)
-            flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
@@ -174,9 +193,9 @@ def stop_position(data, flag):
     if flag["position"]["side"] == "SELL":
         stop_price = flag["position"]["price"] + flag["position"]["stop"]
         if data["high_price"] > stop_price:
-            flag["records"]["log"].append("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
+            print_log("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
             stop_price = round(stop_price + 4 * calculate_volatility(last_data) / (chart_sec / 60), 4)
-            flag["records"]["log"].append(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
@@ -199,9 +218,9 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            flag["records"]["log"].append(
+            print_log(
                 "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
-            flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
@@ -214,16 +233,16 @@ def close_position(data, last_data, flag):
             # ドテン注文の箇所
             # フィルター条件を確認
             if filter(signal) == False:
-                flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                print_log("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot >= 0.01:
-                flag["records"]["log"].append("\n{0}円で{1}通貨の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
+                print_log("\n{0}円で{1}通貨の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
 
-                flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] + stop))
+                print_log("{0}円にストップを入れます\n".format(data["close_price"] + stop))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "SELL"
@@ -231,9 +250,9 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            flag["records"]["log"].append(
+            print_log(
                 "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
-            flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
 
@@ -246,16 +265,16 @@ def close_position(data, last_data, flag):
             # ドテン注文の箇所
             # フィルター条件を確認
             if filter(signal) == False:
-                flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                print_log("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot > 0.01:
-                flag["records"]["log"].append("\n{0}円で{1}通貨の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
+                print_log("\n{0}円で{1}通貨の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
 
-                flag["records"]["log"].append("{0}円にストップを入れます\n".format(data["close_price"] - stop))
+                print_log("{0}円にストップを入れます\n".format(data["close_price"] - stop))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "BUY"
@@ -294,6 +313,7 @@ def filter(signal):
             return True
         if calculate_EMA(Long_EMA_term) > calculate_EMA(Short_EMA_term) and signal["side"] == "SELL":
             return True
+
     return False
 
 
@@ -313,7 +333,7 @@ def calculate_EMA(value, before=None):
         EMA = (last_data[-1 * value + before]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
         for i in range(value - 1):
             EMA = (last_data[-1 * value + before + 1 + i]["close_price"] * 2 / (value + 1)) + (
-                        EMA * (value - 1) / (value + 1))
+                    EMA * (value - 1) / (value + 1))
     else:
         MA = sum(i["close_price"] for i in last_data[-2 * value: -1 * value]) / value
         EMA = (last_data[-1 * value]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
@@ -341,9 +361,9 @@ def calculate_lot(last_data, data, flag):
         flag["add-position"]["stop"] = stop
         flag["position"]["ATR"] = volatility
 
-        flag["records"]["log"].append("\n現在のアカウント残高は{}円です\n".format(balance))
-        flag["records"]["log"].append("許容リスクから購入できる枚数は最大{}通貨までです\n".format(calc_lot))
-        flag["records"]["log"].append("{0}回に分けて{1}通貨ずつ注文します\n".format(entry_times, flag["add-position"]["unit-size"]))
+        print_log("\n現在のアカウント残高は{}円です\n".format(balance))
+        print_log("許容リスクから購入できる枚数は最大{}通貨までです\n".format(calc_lot))
+        print_log("{0}回に分けて{1}通貨ずつ注文します\n".format(entry_times, flag["add-position"]["unit-size"]))
 
     # ストップ幅には、最初のエントリー時に計算したボラティリティを使う
     stop = flag["add-position"]["stop"]
@@ -352,7 +372,7 @@ def calculate_lot(last_data, data, flag):
     able_lot = int(round(np.floor(balance * leverage / data["close_price"] * 100) / 100, -3))
     lot = min(able_lot, flag["add-position"]["unit-size"])
 
-    flag["records"]["log"].append("証拠金から購入できる枚数は最大{}通貨までです\n".format(able_lot))
+    print_log("証拠金から購入できる枚数は最大{}通貨までです\n".format(able_lot))
     return lot, stop, flag
 
 
@@ -387,16 +407,16 @@ def add_position(data, flag):
 
     # 基準レンジ分進んでいれば追加注文を出す
     if should_add_position == True:
-        flag["records"]["log"].append(
+        print_log(
             "\n前回のエントリー価格{0}円からブレイクアウトの方向に{1}ATR（{2}円）以上動きました\n".format(last_entry_price, entry_range,
                                                                         round(unit_range, 4)))
-        flag["records"]["log"].append(
+        print_log(
             "{0}/{1}回目の追加注文を出します\n".format(flag["add-position"]["count"] + 1, entry_times))
 
         # 注文サイズを計算
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot < 0.01:
-            flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
             flag["add-position"]["count"] += 1
             return flag
 
@@ -404,14 +424,14 @@ def add_position(data, flag):
         if flag["position"]["side"] == "BUY":
             entry_price = first_entry_price + (flag["add-position"]["count"] * unit_range)
 
-            flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}通貨の買い注文を出します\n".format(entry_price, lot))
+            print_log("現在のポジションに追加して、{0}円で{1}通貨の買い注文を出します\n".format(entry_price, lot))
 
         # ここに買い注文のコードを入れる
 
         if flag["position"]["side"] == "SELL":
             entry_price = first_entry_price - (flag["add-position"]["count"] * unit_range)
 
-            flag["records"]["log"].append("現在のポジションに追加して、{0}円で{1}通貨の売り注文を出します\n".format(entry_price, lot))
+            print_log("現在のポジションに追加して、{0}円で{1}通貨の売り注文を出します\n".format(entry_price, lot))
 
         # ここに売り注文のコードを入れる
 
@@ -419,16 +439,16 @@ def add_position(data, flag):
         flag["position"]["stop"] = stop
         flag["position"]["price"] = float(round(
             (flag["position"]["price"] * flag["position"]["lot"] + entry_price * lot) / (
-                        flag["position"]["lot"] + lot), 3))
+                    flag["position"]["lot"] + lot), 3))
         flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
 
         if flag["position"]["side"] == "BUY":
-            flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] - stop))
+            print_log("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] - stop))
         elif flag["position"]["side"] == "SELL":
-            flag["records"]["log"].append("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
+            print_log("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
 
-        flag["records"]["log"].append("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
-        flag["records"]["log"].append("現在のポジションサイズは{}通貨です\n\n".format(round(flag["position"]["lot"])))
+        print_log("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
+        print_log("現在のポジションサイズは{}通貨です\n\n".format(round(flag["position"]["lot"])))
 
         flag["add-position"]["count"] += 1
         flag["add-position"]["last-entry-price"] = entry_price
@@ -455,7 +475,8 @@ def trail_stop(data, flag):
         flag["position"]["stop-EP"] = moved_range
 
     # 加速係数に応じて損切りラインを動かす
-    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"]
+    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"][
+        "stop-AF"]
 
     # 加速係数を更新
     flag["position"]["stop-AF"] = flag["position"]["stop-AF"] + stop_AF_add
@@ -464,10 +485,10 @@ def trail_stop(data, flag):
 
     # ログ出力
     if flag["position"]["side"] == "BUY":
-        flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
+        print_log("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
             round(flag["position"]["price"] - flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
     else:
-        flag["records"]["log"].append("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
+        print_log("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
             round(flag["position"]["price"] + flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
 
     return flag
@@ -489,11 +510,11 @@ def get_price():
                  for i in range(params['count'])]
         return price
     else:
-        flag["records"]["log"].append("データが存在しません")
+        print_log("データが存在しません")
         return None
 
-# -------------その他の補助関数--------------
 
+# -------------その他の補助関数--------------
 # 時間と高値・安値・終値を表示する関数
 def print_price(data):
     print("時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M')
@@ -506,14 +527,35 @@ def calculate_volatility(last_data):
     high_sum = sum(i["high_price"] for i in last_data[-1 * volatility_term:])
     low_sum = sum(i["low_price"] for i in last_data[-1 * volatility_term:])
     volatility = round((high_sum - low_sum) / volatility_term, 4)
-    flag["records"]["log"].append("現在の{0}期間の平均ボラティリティは{1}円です\n".format(volatility_term, volatility))
+    print_log("現在の{0}期間の平均ボラティリティは{1}円です\n".format(volatility_term, volatility))
     return volatility
+
+
+# ログファイルの出力やLINE通知の関数
+def print_log(text):
+    # LINE通知する場合
+    if line_config == "ON":
+        url = "https://notify-api.line.me/api/notify"
+        data = {"message": str(text)}
+        headers = {"Authorization": "Bearer " + line_token}
+        try:
+            requests.post(url, data=data, headers=headers)
+        except requests.exceptions.RequestException as e:
+            if log_config == "ON":
+                logger.info(str(e))
+            else:
+                print(str(e))
+
+    # コマンドラインへの出力とファイル保存
+    if log_config == "ON":
+        logger.info(text)
+    else:
+        print(text)
 
 
 # ------------ここからメイン処理の記述--------------
 # 価格チャートを取得
 price = get_price()
-
 
 last_data = []
 need_term = max(buy_term, sell_term, volatility_term)

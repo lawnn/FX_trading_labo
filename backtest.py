@@ -768,6 +768,7 @@ def backtest(flag):
     plt.legend()  # 凡例を表示
     plt.show()
 
+
 # ------------ここからメイン処理の記述--------------
 # 価格チャートを取得
 pd.plotting.register_matplotlib_converters()

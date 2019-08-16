@@ -66,6 +66,8 @@ if log_config == "ON":
     logger.addHandler(handlerSh)
     logger.addHandler(handlerFile)
 
+# -------------注文管理の変数------------------------
+
 flag = {
     "position": {
         "exist": False,
@@ -94,66 +96,67 @@ flag = {
 # ドンチャンブレイクを判定する関数
 def donchian(data, last_data):
     highest = max(i["high_price"] for i in last_data[(-1 * buy_term):])
-    if data[judge_price["BUY"]] > highest:
+    if data["forming"][judge_price["BUY"]] > highest:
         return {"side": "BUY", "price": highest}
 
     lowest = min(i["low_price"] for i in last_data[(-1 * sell_term):])
-    if data[judge_price["SELL"]] < lowest:
+    if data["forming"][judge_price["SELL"]] < lowest:
         return {"side": "SELL", "price": lowest}
 
     return {"side": None, "price": 0}
 
 
-# エントリー注文を出す関数
+# ドンチャンブレイクを判定してエントリー注文を出す関数
 def entry_signal(data, last_data, flag):
     if flag["position"]["exist"] == True:
         return flag
 
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
-        print_log(
-            "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました".format(buy_term, signal["price"],
+                                                               data["forming"][judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
-            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
-            print_log("{0}円で{1}通貨の買い注文を出します\n".format(data["close_price"], lot))
+        if lot >= 0.01:
+            print_log("{0}円あたりに{1}通貨で買いの成行注文を出します".format(data["forming"]["close_price"], lot))
 
             # ここに買い注文のコードを入れる
+            price = oanda_market("BUY", lot)
 
-            print_log("{0}円にストップを入れます\n".format(data["close_price"] - stop))
+            print_log("{0}円にストップを入れます".format(price - stop))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "BUY"
-            flag["position"]["price"] = data["close_price"]
+            flag["position"]["price"] = price
         else:
-            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
     if signal["side"] == "SELL":
-        print_log(
-            "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
-
+        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました".format(sell_term, signal["price"],
+                                                               data["forming"][judge_price["SELL"]]))
         # フィルター条件を確認
         if filter(signal) == False:
-            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
+            print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
-            print_log("{0}円で{1}通貨の売り注文を出します\n".format(data["close_price"], lot))
+        if lot >= 1:
+            print_log("{0}円あたりに{1}通貨の売りの成行注文を出します".format(data["forming"]["close_price"], lot))
 
             # ここに売り注文のコードを入れる
+            price = oanda_market("SELL", lot)
 
-            print_log("{0}円にストップを入れます\n".format(data["close_price"] + stop))
+            print_log("{0}円にストップを入れます".format(price + stop))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "SELL"
-            flag["position"]["price"] = data["close_price"]
+            flag["position"]["price"] = price
         else:
-            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
+            print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
     return flag
 
@@ -166,12 +169,12 @@ def stop_position(data, flag):
 
     if flag["position"]["side"] == "BUY":
         stop_price = flag["position"]["price"] - flag["position"]["stop"]
-        if data["low_price"] < stop_price:
-            print_log("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
-            stop_price = round(stop_price - 4 * calculate_volatility(last_data) / (chart_sec / 60), 4)
-            print_log(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+        if data["forming"]["low_price"] < stop_price:
+            print_log("{0}円の損切ラインに引っかかりました。".format(stop_price))
+            print_log(str(data["forming"]["low_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
+            oanda_market("SELL", flag["position"]["lot"])
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -181,12 +184,12 @@ def stop_position(data, flag):
 
     if flag["position"]["side"] == "SELL":
         stop_price = flag["position"]["price"] + flag["position"]["stop"]
-        if data["high_price"] > stop_price:
-            print_log("{0}円の損切ラインに引っかかりました。\n".format(stop_price))
-            stop_price = round(stop_price + 4 * calculate_volatility(last_data) / (chart_sec / 60), 4)
-            print_log(str(stop_price) + "円あたりで成行注文を出してポジションを決済します\n")
+        if data["forming"]["high_price"] > stop_price:
+            print_log("{0}円の損切ラインに引っかかりました。".format(stop_price))
+            print_log(str(data["forming"]["high_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
+            oanda_market("BUY", flag["position"]["lot"])
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -207,11 +210,12 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            print_log(
-                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
-            print_log(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました".format(sell_term, signal["price"],
+                                                                   data["settled"][judge_price["SELL"]]))
+            print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
+            oanda_market("SELL", flag["position"]["lot"])
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -222,28 +226,30 @@ def close_position(data, last_data, flag):
             # ドテン注文の箇所
             # フィルター条件を確認
             if filter(signal) == False:
-                print_log("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
             if lot >= 0.01:
-                print_log("\n{0}円で{1}通貨の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
+                print_log("さらに{0}円あたりに{1}通貨の売りの成行注文を入れてドテン出します".format(data["settled"]["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
+                price = oanda_market("SELL", lot)
 
-                print_log("{0}円にストップを入れます\n".format(data["close_price"] + stop))
+                print_log("{0}円にストップを入れます".format(price + stop))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "SELL"
-                flag["position"]["price"] = data["close_price"]
+                flag["position"]["price"] = price
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            print_log(
-                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
-            print_log(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
+            print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました".format(buy_term, signal["price"],
+                                                                   data["settled"][judge_price["BUY"]]))
+            print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
+            oanda_market("BUY", flag["position"]["lot"])
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -254,20 +260,21 @@ def close_position(data, last_data, flag):
             # ドテン注文の箇所
             # フィルター条件を確認
             if filter(signal) == False:
-                print_log("フィルターのエントリー条件を満たさなかったため、ドテンエントリーはしません\n")
+                print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot > 0.01:
-                print_log("\n{0}円で{1}通貨の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
+            if lot >= 1:
+                print_log("さらに{0}円あたりで{1}通貨の買いの成行注文を入れてドテンします".format(data["settled"]["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
+                price = oanda_market("BUY", lot)
 
-                print_log("{0}円にストップを入れます\n".format(data["close_price"] - stop))
+                print_log("{0}円にストップを入れます".format(price - stop))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "BUY"
-                flag["position"]["price"] = data["close_price"]
+                flag["position"]["price"] = price
 
     return flag
 
@@ -282,9 +289,9 @@ def filter(signal):
     if filter_VER == "A":
         if len(last_data) < MA_term:
             return True
-        if data.get("close_price") > calculate_MA(MA_term) and signal["side"] == "BUY":
+        if data["settled"]["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
             return True
-        if data.get("close_price") < calculate_MA(MA_term) and signal["side"] == "SELL":
+        if data["settled"]["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
             return True
 
     if filter_VER == "B":
@@ -336,7 +343,7 @@ def calculate_EMA(value, before=None):
 # 注文ロットを計算する関数
 def calculate_lot(last_data, data, flag):
     # 口座残高を取得する
-    balance = flag["records"]["funds"]
+    balance = oanda_collateral()
 
     # 最初のエントリーの場合
     if flag["add-position"]["count"] == 0:
@@ -358,7 +365,7 @@ def calculate_lot(last_data, data, flag):
     stop = flag["add-position"]["stop"]
 
     # 実際に購入可能な枚数を計算する
-    able_lot = int(round(np.floor(balance * leverage / data["close_price"] * 100) / 100, -3))
+    able_lot = int(round(np.floor(balance * leverage / data["forming"]["close_price"] * 100) / 100, -3))
     lot = min(able_lot, flag["add-position"]["unit-size"])
 
     print_log("証拠金から購入できる枚数は最大{}通貨までです\n".format(able_lot))
@@ -385,7 +392,7 @@ def add_position(data, flag):
     first_entry_price = flag["add-position"]["first-entry-price"]
     last_entry_price = flag["add-position"]["last-entry-price"]
     unit_range = flag["add-position"]["unit-range"]
-    current_price = data["close_price"]
+    current_price = data["forming"]["close_price"]
 
     # 価格がエントリー方向に基準レンジ分だけ進んだか判定する
     should_add_position = False
@@ -411,18 +418,14 @@ def add_position(data, flag):
 
         # 追加注文を出す
         if flag["position"]["side"] == "BUY":
-            entry_price = first_entry_price + (flag["add-position"]["count"] * unit_range)
-
-            print_log("現在のポジションに追加して、{0}円で{1}通貨の買い注文を出します\n".format(entry_price, lot))
-
-        # ここに買い注文のコードを入れる
+            # ここに買い注文のコードを入れる
+            print_log("現在のポジションに追加して{}通貨の買い注文を出します".format(lot))
+            entry_price = oanda_market("BUY", lot)
 
         if flag["position"]["side"] == "SELL":
-            entry_price = first_entry_price - (flag["add-position"]["count"] * unit_range)
-
-            print_log("現在のポジションに追加して、{0}円で{1}通貨の売り注文を出します\n".format(entry_price, lot))
-
-        # ここに売り注文のコードを入れる
+            # ここに売り注文のコードを入れる
+            print_log("現在のポジションに追加して{}通貨の売り注文を出します".format(lot))
+            entry_price = oanda_market("SELL", lot)
 
         # ポジション全体の情報を更新する
         flag["position"]["stop"] = stop
@@ -447,15 +450,15 @@ def add_position(data, flag):
 
 # トレイリングストップの関数
 def trail_stop(data, flag):
-    # まだ追加ポジション（増し玉）の取得中であれば何もしない
+    # まだ追加ポジションの取得中であれば何もしない
     if flag["add-position"]["count"] < entry_times:
         return flag
 
     # 高値／安値がエントリー価格からいくら離れたか計算
     if flag["position"]["side"] == "BUY":
-        moved_range = data["high_price"] - flag["position"]["price"]
+        moved_range = round(data["settled"]["high_price"] - flag["position"]["price"])
     if flag["position"]["side"] == "SELL":
-        moved_range = flag["position"]["price"] - data["low_price"]
+        moved_range = round(flag["position"]["price"] - data["settled"]["low_price"])
 
     # 最高値・最安値を更新したか調べる
     if moved_range < 0 or flag["position"]["stop-EP"] >= moved_range:
@@ -464,21 +467,21 @@ def trail_stop(data, flag):
         flag["position"]["stop-EP"] = moved_range
 
     # 加速係数に応じて損切りラインを動かす
-    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"][
-        "stop-AF"]
+    flag["position"]["stop"] = round(
+        flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"], 3)
 
     # 加速係数を更新
-    flag["position"]["stop-AF"] = flag["position"]["stop-AF"] + stop_AF_add
+    flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 2)
     if flag["position"]["stop-AF"] >= stop_AF_max:
         flag["position"]["stop-AF"] = stop_AF_max
 
     # ログ出力
     if flag["position"]["side"] == "BUY":
         print_log("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] - flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] - flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
     else:
         print_log("トレイリングストップの発動：ストップ位置を{}円に動かして、加速係数を{}に更新します\n".format(
-            round(flag["position"]["price"] + flag["position"]["stop"], 2), flag["position"]["stop-AF"]))
+            round(flag["position"]["price"] + flag["position"]["stop"], 3), flag["position"]["stop-AF"]))
 
     return flag
 
@@ -543,9 +546,8 @@ def get_realtime_price():
 # -------------その他の補助関数--------------
 # 時間と高値・安値・終値を表示する関数
 def print_price(data):
-    print("時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M')
-          + " 始値： " + str(data['open_price'])
-          + " 終値： " + str(data['close_price']))
+    print_log("時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M') + " 高値： " + str(
+        data["high_price"]) + " 安値： " + str(data["low_price"]) + " 終値： " + str(data["close_price"]))
 
 
 # １期間の平均ボラティリティを計算する

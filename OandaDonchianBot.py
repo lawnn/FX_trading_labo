@@ -1,6 +1,6 @@
 from auth import exampleAuth
 import requests
-from logging import getLogger, Formatter, StreamHandler, FileHandler, INFO
+from logging import getLogger, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 from oandapyV20.exceptions import V20Error
@@ -8,10 +8,7 @@ import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.accounts as accounts
 import oandapyV20.endpoints.positions as positions
 import dateutil.parser
-from datetime import datetime
 import time
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 
 # -------------設定項目------------------------
@@ -389,7 +386,6 @@ def add_position(data, flag):
         return flag
 
     # この関数の中で使う変数を用意
-    first_entry_price = flag["add-position"]["first-entry-price"]
     last_entry_price = flag["add-position"]["last-entry-price"]
     unit_range = flag["add-position"]["unit-range"]
     current_price = data["forming"]["close_price"]

@@ -776,7 +776,7 @@ price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + 
 
 
 last_data = []
-need_term = max(buy_term, sell_term, volatility_term)
+need_term = max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2)
 i = 0
 while i < len(price):
 

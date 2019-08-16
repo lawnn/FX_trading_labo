@@ -18,8 +18,8 @@ buy_term = 10  # 買いエントリーのブレイク期間の設定
 sell_term = 10  # 売りエントリーのブレイク期間の設定
 
 judge_price = {
-    "BUY": "high_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
-    "SELL": "low_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
+    "BUY": "close_price",  # ブレイク判断　高値（high_price)か終値（close_price）を使用
+    "SELL": "close_price"  # ブレイク判断　安値 (low_price)か終値（close_price）を使用
 }
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に1通貨固定 / adjustable なら可変ロット
@@ -42,8 +42,8 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
-line_config = "ON"  # LINE通知をするかどうかの設定
-log_config = "ON"  # ログファイルを出力するかの設定
+line_config = ""  # LINE通知をするかどうかの設定
+log_config = ""  # ログファイルを出力するかの設定
 log_file_path = "c:/Pydoc/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
 
 accountID, token, line_token = exampleAuth()
@@ -93,11 +93,11 @@ flag = {
 # ドンチャンブレイクを判定する関数
 def donchian(data, last_data):
     highest = max(i["high_price"] for i in last_data[(-1 * buy_term):])
-    if data["settled"][judge_price["BUY"]] > highest:
+    if data["forming"][judge_price["BUY"]] > highest:
         return {"side": "BUY", "price": highest}
 
     lowest = min(i["low_price"] for i in last_data[(-1 * sell_term):])
-    if data["settled"][judge_price["SELL"]] < lowest:
+    if data["forming"][judge_price["SELL"]] < lowest:
         return {"side": "SELL", "price": lowest}
 
     return {"side": None, "price": 0}
@@ -111,7 +111,7 @@ def entry_signal(data, last_data, flag):
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
         print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円で上にブレイクしました".format(buy_term, signal["price"],
-                                                               data["settled"][judge_price["BUY"]]))
+                                                               data["forming"][judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
@@ -134,7 +134,7 @@ def entry_signal(data, last_data, flag):
 
     if signal["side"] == "SELL":
         print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円で下にブレイクしました".format(sell_term, signal["price"],
-                                                               data["settled"][judge_price["SELL"]]))
+                                                               data["forming"][judge_price["SELL"]]))
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")

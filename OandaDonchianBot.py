@@ -115,6 +115,7 @@ def entry_signal(data, last_data, flag):
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
+            time.sleep(300)
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
@@ -138,6 +139,7 @@ def entry_signal(data, last_data, flag):
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
+            time.sleep(300)
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
@@ -224,6 +226,7 @@ def close_position(data, last_data, flag):
             # フィルター条件を確認
             if filter(signal) == False:
                 print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
+                time.sleep(300)
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
@@ -258,6 +261,7 @@ def close_position(data, last_data, flag):
             # フィルター条件を確認
             if filter(signal) == False:
                 print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
+                time.sleep(300)
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)

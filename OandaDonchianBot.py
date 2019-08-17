@@ -7,7 +7,7 @@ from oandapyV20.exceptions import V20Error
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.accounts as accounts
 import oandapyV20.endpoints.positions as positions
-import dateutil.parser
+from datetime import datetime
 import time
 import numpy as np
 
@@ -489,12 +489,12 @@ def get_price():
         "count": max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2),
         "granularity": gran
     }
-    api = API(access_token=token)
+    api = API(access_token=token, headers={"Accept-Datetime-Format": "Unix"})
     r = instruments.InstrumentsCandles(instrument=currency, params=params)
     rv = api.request(r)
     if rv["candles"] is not None:
         price = [{"close_time": rv["candles"][i]['time'],
-                  "close_time_dt": dateutil.parser.parse(rv["candles"][i]['time']).strftime('%Y/%m/%d %H:%M'),
+                  "close_time_dt": str(datetime.fromtimestamp(int(float(rv["candles"][i]['time'])))),
                   "open_price": round(float(rv["candles"][i]["mid"]['o']), 3),
                   "high_price": round(float(rv["candles"][i]["mid"]['h']), 3),
                   "low_price": round(float(rv["candles"][i]["mid"]['l']), 3),
@@ -514,7 +514,7 @@ def get_realtime_price():
     }
     while True:
         try:
-            api = API(access_token=token)
+            api = API(access_token=token, headers={"Accept-Datetime-Format": "Unix"})
             r = instruments.InstrumentsCandles(instrument=currency, params=params)
             rv = api.request(r)
             return {
@@ -542,7 +542,7 @@ def get_realtime_price():
 # -------------その他の補助関数--------------
 # 時間と高値・安値・終値を表示する関数
 def print_price(data):
-    print_log("時間： " + dateutil.parser.parse(data['close_time']).strftime('%Y/%m/%d %H:%M') + " 高値： " + str(
+    print_log("時間： " + str(datetime.fromtimestamp(int(float(data['close_time'])))) + " 高値： " + str(
         data["high_price"]) + " 安値： " + str(data["low_price"]) + " 終値： " + str(data["close_price"]))
 
 

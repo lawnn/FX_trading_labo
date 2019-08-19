@@ -149,7 +149,7 @@ def entry_signal(data, last_data, flag):
             # ここに売り注文のコードを入れる
             price = oanda_market("SELL", lot)
 
-            print_log("{0}円にストップを入れます".format(price + stop))
+            print_log("{0}円にストップを入れます".format(str(price + stop)))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "SELL"
@@ -271,7 +271,7 @@ def close_position(data, last_data, flag):
                 # ここに買い注文のコードを入れる
                 price = oanda_market("BUY", lot)
 
-                print_log("{0}円にストップを入れます".format(price - stop))
+                print_log("{0}円にストップを入れます".format(str(price - stop)))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "BUY"

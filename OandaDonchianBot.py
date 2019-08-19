@@ -672,7 +672,7 @@ def oanda_collateral():
             api = API(access_token=token)
             r = accounts.AccountSummary(accountID)
             rv = api.request(r)
-            balance = rv['account']['balance']
+            balance = float(rv['account']['balance'])
             spendable_collateral = np.floor(balance * leverage / data["forming"]["close_price"])
             print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
             print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))

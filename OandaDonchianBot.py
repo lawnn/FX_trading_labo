@@ -173,7 +173,7 @@ def stop_position(data, flag):
             print_log(str(data["forming"]["low_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
-            oanda_market("SELL", flag["position"]["lot"])
+            oanda_close_positions("SELL")
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -188,7 +188,7 @@ def stop_position(data, flag):
             print_log(str(data["forming"]["high_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
-            oanda_market("BUY", flag["position"]["lot"])
+            oanda_close_positions("BUY")
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -214,7 +214,7 @@ def close_position(data, last_data, flag):
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
-            oanda_market("SELL", flag["position"]["lot"])
+            oanda_close_positions("SELL")
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -249,7 +249,7 @@ def close_position(data, last_data, flag):
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
-            oanda_market("BUY", flag["position"]["lot"])
+            oanda_close_positions("BUY")
 
             flag["position"]["exist"] = False
             flag["position"]["count"] = 0
@@ -655,7 +655,7 @@ def oanda_close_positions(side):
     try:
         r = positions.PositionClose(accountID, instrument=currency, data=order_data)
         api.request(r)
-        print_log("\nすべての建玉を決済しました\n決済価格は平均 {}円です".format(str(data["forming"]["low_price"])))
+        print_log("\nすべての建玉を決済しました\n決済価格は平均 {}円です".format(str(data["forming"]["close_price"])))
     except V20Error as e:
         print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\nやり直します")
         print_log("20秒待機してやり直します")
@@ -664,18 +664,21 @@ def oanda_close_positions(side):
 
 # 口座残高を取得する関数
 def oanda_collateral():
-    try:
-        api = API(access_token=token)
-        r = accounts.AccountSummary(accountID)
-        rv = api.request(r)
-        balance = rv['account']['balance']
-        print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-        print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(float(balance))))
+    while True:
+        try:
+            api = API(access_token=token)
+            r = accounts.AccountSummary(accountID)
+            rv = api.request(r)
+            balance = rv['account']['balance']
+            spendable_collateral = np.floor(balance * leverage / data["forming"]["close_price"])
+            print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
+            print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
+            return int(spendable_collateral)
 
-    except V20Error as e:
-        print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))
-        print_log("20秒待機してやり直します")
-        time.sleep(20)
+        except V20Error as e:
+            print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))
+            print_log("20秒待機してやり直します")
+            time.sleep(20)
 
 
 # ------------ここからメイン処理の記述--------------

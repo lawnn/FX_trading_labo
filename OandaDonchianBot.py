@@ -111,7 +111,7 @@ def entry_signal(data, last_data, flag):
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
         print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円で上にブレイクしました".format(buy_term, signal["price"],
-                                                               data["forming"][judge_price["BUY"]]))
+                                                                 data["forming"][judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
@@ -135,7 +135,7 @@ def entry_signal(data, last_data, flag):
 
     if signal["side"] == "SELL":
         print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円で下にブレイクしました".format(sell_term, signal["price"],
-                                                               data["forming"][judge_price["SELL"]]))
+                                                                 data["forming"][judge_price["SELL"]]))
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
@@ -651,15 +651,18 @@ def oanda_close_positions(side):
     if side == "SELL":
         order_data = {"shortUnits": "ALL"}
 
-    # 注文実行
-    try:
-        r = positions.PositionClose(accountID, instrument=currency, data=order_data)
-        api.request(r)
-        print_log("\nすべての建玉を決済しました\n決済価格は平均 {}円です".format(str(data["forming"]["close_price"])))
-    except V20Error as e:
-        print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\nやり直します")
-        print_log("20秒待機してやり直します")
-        time.sleep(20)
+    while True:
+        # 注文実行
+        try:
+            r = positions.PositionClose(accountID, instrument=currency, data=order_data)
+            api.request(r)
+            print_log("\nすべての建玉を決済しました\n決済価格は平均 {}円です".format(str(data["forming"]["close_price"])))
+            return order_data
+
+        except V20Error as e:
+            print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\nやり直します")
+            print_log("20秒待機してやり直します")
+            time.sleep(20)
 
 
 # 口座残高を取得する関数

@@ -125,11 +125,11 @@ def entry_signal(data, last_data, flag):
             # ここに買い注文のコードを入れる
             price = oanda_market("BUY", lot)
 
-            print_log("{0}円にストップを入れます".format(price - stop))
+            print_log("{0}円にストップを入れます".format(str(float(price) - stop)))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "BUY"
-            flag["position"]["price"] = price
+            flag["position"]["price"] = float(price)
         else:
             print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
@@ -149,11 +149,11 @@ def entry_signal(data, last_data, flag):
             # ここに売り注文のコードを入れる
             price = oanda_market("SELL", lot)
 
-            print_log("{0}円にストップを入れます".format(str(price + stop)))
+            print_log("{0}円にストップを入れます".format(str(float(price) + stop)))
             flag["position"]["lot"], flag["position"]["stop"] = lot, stop
             flag["position"]["exist"] = True
             flag["position"]["side"] = "SELL"
-            flag["position"]["price"] = price
+            flag["position"]["price"] = float(price)
         else:
             print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
@@ -236,11 +236,11 @@ def close_position(data, last_data, flag):
                 # ここに売り注文のコードを入れる
                 price = oanda_market("SELL", lot)
 
-                print_log("{0}円にストップを入れます".format(price + stop))
+                print_log("{0}円にストップを入れます".format(str(float(price) + stop)))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "SELL"
-                flag["position"]["price"] = price
+                flag["position"]["price"] = float(price)
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
@@ -271,11 +271,11 @@ def close_position(data, last_data, flag):
                 # ここに買い注文のコードを入れる
                 price = oanda_market("BUY", lot)
 
-                print_log("{0}円にストップを入れます".format(str(price - stop)))
+                print_log("{0}円にストップを入れます".format(str(float(price) - stop)))
                 flag["position"]["lot"], flag["position"]["stop"] = lot, stop
                 flag["position"]["exist"] = True
                 flag["position"]["side"] = "BUY"
-                flag["position"]["price"] = price
+                flag["position"]["price"] = float(price)
 
     return flag
 
@@ -673,10 +673,10 @@ def oanda_collateral():
             r = accounts.AccountSummary(accountID)
             rv = api.request(r)
             balance = float(rv['account']['balance'])
-            spendable_collateral = np.floor(balance * leverage / data["forming"]["close_price"])
+            # spendable_collateral = np.floor(balance * leverage / data["forming"]["close_price"])
             print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-            print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
-            return int(spendable_collateral)
+            # print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
+            return int(balance)
 
         except V20Error as e:
             print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))

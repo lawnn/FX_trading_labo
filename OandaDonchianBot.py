@@ -630,7 +630,6 @@ def oanda_market(side, lot):
                     # 注文実行
                     api.request(order)
                     position = api.request(position)  # API元にrequestを送る(position)
-                    print(position)
                     average_price = position['positions'][0]['short']['averagePrice']
                     print_log(order)
                     print_log("注文がすべて約定するのを待っています")

@@ -456,9 +456,9 @@ def trail_stop(data, flag):
 
     # 高値／安値がエントリー価格からいくら離れたか計算
     if flag["position"]["side"] == "BUY":
-        moved_range = round(data["settled"]["high_price"] - flag["position"]["price"])
+        moved_range = round(data["settled"]["high_price"] - flag["position"]["price"], 3)
     if flag["position"]["side"] == "SELL":
-        moved_range = round(flag["position"]["price"] - data["settled"]["low_price"])
+        moved_range = round(flag["position"]["price"] - data["settled"]["low_price"], 3)
 
     # 最高値・最安値を更新したか調べる
     if moved_range < 0 or flag["position"]["stop-EP"] >= moved_range:
@@ -471,7 +471,7 @@ def trail_stop(data, flag):
         flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"], 3)
 
     # 加速係数を更新
-    flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 2)
+    flag["position"]["stop-AF"] = round(flag["position"]["stop-AF"] + stop_AF_add, 3)
     if flag["position"]["stop-AF"] >= stop_AF_max:
         flag["position"]["stop-AF"] = stop_AF_max
 

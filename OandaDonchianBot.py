@@ -606,9 +606,7 @@ def oanda_market(side, lot):
     while True:
 
         # 注文実行
-        executions = api.request(order)  # API元にrequestを送る(order)
         position = api.request(position)  # API元にrequestを送る(position)
-        accountBalance = executions['orderFillTransaction']['accountBalance']
         print_log(order)
         time.sleep(30)
 
@@ -620,7 +618,7 @@ def oanda_market(side, lot):
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)
                     print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
-                    return average_price
+                    return float(average_price)
 
                 except V20Error as e:
                     print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
@@ -633,7 +631,7 @@ def oanda_market(side, lot):
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)
                     print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
-                    return average_price
+                    return float(average_price)
 
                 except V20Error as e:
                     print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
@@ -660,7 +658,7 @@ def oanda_close_positions(side):
             return order_data
 
         except V20Error as e:
-            print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\nやり直します")
+            print_log("OANDAのAPIで問題発生" + str(e))
             print_log("20秒待機してやり直します")
             time.sleep(20)
 
@@ -672,11 +670,11 @@ def oanda_collateral():
             api = API(access_token=token)
             r = accounts.AccountSummary(accountID)
             rv = api.request(r)
-            balance = float(rv['account']['balance'])
-            # spendable_collateral = np.floor(balance * leverage / data["forming"]["close_price"])
+            balance = rv['account']['balance']
+            spendable_collateral = float(rv['account']['withdrawalLimit'])
             print_log('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
-            # print_log("新規注文に利用可能な証拠金の額は{}円です".format(int(spendable_collateral)))
-            return int(balance)
+            print_log("新規注文に利用可能な証拠金の額は{}円です".format(round(int(spendable_collateral))))
+            return int(spendable_collateral)
 
         except V20Error as e:
             print_log("OANDAのAPIでの口座残高取得に失敗しました ： " + str(e))

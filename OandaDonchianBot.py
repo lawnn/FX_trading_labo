@@ -604,17 +604,17 @@ def oanda_market(side, lot):
     position = positions.OpenPositions(accountID=accountID)
 
     while True:
-
-        # 注文実行
-        position = api.request(position)  # API元にrequestを送る(position)
-        print_log(order)
         time.sleep(30)
 
         # 執行状況を確認
         if units > 0:
             while True:
                 try:
+                    # 注文実行
+                    api.request(order)
+                    position = api.request(position)  # API元にrequestを送る(position)
                     average_price = position['positions'][0]['long']['averagePrice']
+                    print_log(order)
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)
                     print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
@@ -627,7 +627,12 @@ def oanda_market(side, lot):
         elif units < 0:
             while True:
                 try:
+                    # 注文実行
+                    api.request(order)
+                    position = api.request(position)  # API元にrequestを送る(position)
+                    print(position)
                     average_price = position['positions'][0]['short']['averagePrice']
+                    print_log(order)
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)
                     print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))

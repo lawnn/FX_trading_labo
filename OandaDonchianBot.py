@@ -611,8 +611,8 @@ def oanda_market(side, lot):
             while True:
                 try:
                     # 注文実行
-                    api.request(order)
-                    position = api.request(position)  # API元にrequestを送る(position)
+                    api.request(order)                  # API元にrequestを送る(order)
+                    position = api.request(position)    # API元にrequestを送る(position)
                     average_price = position['positions'][0]['long']['averagePrice']
                     print_log(order)
                     print_log("注文がすべて約定するのを待っています")
@@ -628,8 +628,8 @@ def oanda_market(side, lot):
             while True:
                 try:
                     # 注文実行
-                    api.request(order)
-                    position = api.request(position)  # API元にrequestを送る(position)
+                    api.request(order)                  # API元にrequestを送る(order)
+                    position = api.request(position)    # API元にrequestを送る(position)
                     average_price = position['positions'][0]['short']['averagePrice']
                     print_log(order)
                     print_log("注文がすべて約定するのを待っています")
@@ -669,10 +669,12 @@ def oanda_close_positions(side):
 
 # 口座残高を取得する関数
 def oanda_collateral():
+    api = API(access_token=token)
+    r = accounts.AccountSummary(accountID)
+
     while True:
         try:
-            api = API(access_token=token)
-            r = accounts.AccountSummary(accountID)
+
             rv = api.request(r)
             balance = rv['account']['balance']
             spendable_collateral = float(rv['account']['withdrawalLimit'])

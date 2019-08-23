@@ -44,7 +44,7 @@ Long_EMA_term = Short_EMA_term * 2
 
 line_config = ""  # LINE通知をするかどうかの設定
 log_config = ""  # ログファイルを出力するかの設定
-log_file_path = "c:/Pydoc/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
+log_file_path = "c:/Pydoc/oanda/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
 
 accountID, token, line_token = exampleAuth()
 currency = "USD_JPY"

@@ -649,9 +649,9 @@ def oanda_close_positions(side):
 
     # 注文内容
     if side == "BUY":
-        order_data = {"longUnits": "ALL"}
-    if side == "SELL":
         order_data = {"shortUnits": "ALL"}
+    if side == "SELL":
+        order_data = {"longUnits": "ALL"}
 
     while True:
         # 注文実行

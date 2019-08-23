@@ -110,7 +110,7 @@ def entry_signal(data, last_data, flag):
 
     signal = donchian(data, last_data)
     if signal["side"] == "BUY":
-        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円で上にブレイクしました".format(buy_term, signal["price"],
+        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(buy_term, signal["price"],
                                                                  data["forming"][judge_price["BUY"]]))
         # フィルター条件を確認
         if filter(signal) == False:
@@ -134,7 +134,7 @@ def entry_signal(data, last_data, flag):
             print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
     if signal["side"] == "SELL":
-        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円で下にブレイクしました".format(sell_term, signal["price"],
+        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(sell_term, signal["price"],
                                                                  data["forming"][judge_price["SELL"]]))
         # フィルター条件を確認
         if filter(signal) == False:
@@ -209,7 +209,7 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました".format(sell_term, signal["price"],
+            print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(sell_term, signal["price"],
                                                                    data["settled"][judge_price["SELL"]]))
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
@@ -244,7 +244,7 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました".format(buy_term, signal["price"],
+            print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(buy_term, signal["price"],
                                                                    data["settled"][judge_price["BUY"]]))
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
@@ -405,7 +405,7 @@ def add_position(data, flag):
     if should_add_position == True:
         print_log(
             "\n前回のエントリー価格{0}円からブレイクアウトの方向に{1}ATR（{2}円）以上動きました\n".format(last_entry_price, entry_range,
-                                                                        round(unit_range, 4)))
+                                                                        round(unit_range, 3)))
         print_log(
             "{0}/{1}回目の追加注文を出します\n".format(flag["add-position"]["count"] + 1, entry_times))
 
@@ -435,12 +435,12 @@ def add_position(data, flag):
         flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
 
         if flag["position"]["side"] == "BUY":
-            print_log("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] - stop))
+            print_log("{0}円の位置にストップを更新します\n".format(round(flag["position"]["price"] - stop, 3)))
         elif flag["position"]["side"] == "SELL":
-            print_log("{0}円の位置にストップを更新します\n".format(flag["position"]["price"] + stop))
+            print_log("{0}円の位置にストップを更新します\n".format(round(flag["position"]["price"] + stop, 3)))
 
         print_log("現在のポジションの取得単価は{}円です\n".format(flag["position"]["price"]))
-        print_log("現在のポジションサイズは{}通貨です\n\n".format(round(flag["position"]["lot"])))
+        print_log("現在のポジションサイズは{}通貨です\n\n".format(round(int(flag["position"]["lot"]))))
 
         flag["add-position"]["count"] += 1
         flag["add-position"]["last-entry-price"] = entry_price
@@ -613,7 +613,7 @@ def oanda_market(side, lot):
                     # 注文実行
                     api.request(order)                  # API元にrequestを送る(order)
                     position = api.request(position)    # API元にrequestを送る(position)
-                    average_price = position['positions'][0]['long']['averagePrice']
+                    average_price = position['positions'][-1]['long']['averagePrice']
                     print_log(order)
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)
@@ -630,7 +630,7 @@ def oanda_market(side, lot):
                     # 注文実行
                     api.request(order)                  # API元にrequestを送る(order)
                     position = api.request(position)    # API元にrequestを送る(position)
-                    average_price = position['positions'][0]['short']['averagePrice']
+                    average_price = position['positions'][-1]['short']['averagePrice']
                     print_log(order)
                     print_log("注文がすべて約定するのを待っています")
                     time.sleep(20)

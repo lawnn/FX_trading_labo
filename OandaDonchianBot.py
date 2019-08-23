@@ -490,7 +490,7 @@ def trail_stop(data, flag):
 # oandaのapiを使用する関数
 def get_price():
     params = {
-        "count": max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2),
+        "count": need_term,
         "granularity": gran
     }
     api = API(access_token=token, headers={"Accept-Datetime-Format": "Unix"})

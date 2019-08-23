@@ -110,6 +110,7 @@ def oanda_collateral():
         try:
 
             rv = api.request(r)
+            pprint(rv)
             balance = rv['account']['balance']
             spendable_collateral = float(rv['account']['withdrawalLimit'])
             pprint('現在の口座残高は{}円です。'.format(round(int(float(balance)))))
@@ -154,10 +155,17 @@ def get_realtime_price():
             time.sleep(10)
 
 
+def check_position():
+    api = API(access_token=token)
+    position = positions.OpenPositions(accountID=accountID)
+    position = api.request(position)    # API元にrequestを送る(position)
+    pprint(position)
+
+
 data = get_realtime_price()
+check_position()
 
-
-
+# oanda_collateral()
 
 
 

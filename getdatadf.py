@@ -3,7 +3,7 @@ import oandapyV20.endpoints.instruments as instruments
 import pandas as pd
 import time
 from datetime import datetime
-from auth import exampleAuth
+from auth import Auth
 
 
 # start～endまでのデータ取得
@@ -87,7 +87,7 @@ def send_api(count, start, minute, instrument):
     return df, last_timestamp
 
 
-accountID, token = exampleAuth()
+accountID, token = Auth()
 instrument = 'USD_JPY'
 minute = [15]
 # start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')

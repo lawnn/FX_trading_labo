@@ -1,9 +1,9 @@
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
-from auth import exampleAuth
+from auth import Auth
 from pprint import pprint
 
-accountID, token = exampleAuth()
+accountID, token = Auth()
 api = API(access_token=token)
 
 # H2間隔で10データ

@@ -1,4 +1,4 @@
-from auth import exampleAuth
+from auth import Auth
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import dateutil.parser
@@ -39,7 +39,7 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
-accountID, token, line_token = exampleAuth()
+accountID, token, line_token = Auth()
 instrument = "USD_JPY"
 params = {
     "count": 5000,

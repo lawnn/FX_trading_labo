@@ -1,8 +1,8 @@
-from auth import exampleAuth
+from auth import Auth
 import oandapyV20
 import oandapyV20.endpoints.accounts as accounts
 from pprint import pprint
-accountID, token, line_token = exampleAuth()
+accountID, token, line_token = Auth()
 client = oandapyV20.API(access_token=token)
 r = accounts.AccountSummary(accountID)
 rv = client.request(r)

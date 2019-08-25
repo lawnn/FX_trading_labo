@@ -1,4 +1,4 @@
-from auth import exampleAuth
+from auth import Auth
 import requests
 from logging import getLogger, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
@@ -12,7 +12,7 @@ import time
 import numpy as np
 from pprint import pprint
 
-accountID, token, line_token = exampleAuth()
+accountID, token, line_token = Auth()
 currency = "USD_JPY"
 gran = "M15"
 

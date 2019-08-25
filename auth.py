@@ -1,4 +1,4 @@
-def exampleAuth():
+def Auth():
     accountID, token, line_token = None, None, None
     with open("account.txt") as I:
         accountID = I.read().strip()

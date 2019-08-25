@@ -1,4 +1,4 @@
-from auth import exampleAuth
+from auth import Auth
 import requests
 from logging import getLogger, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
@@ -46,7 +46,7 @@ line_config = ""  # LINE通知をするかどうかの設定
 log_config = ""  # ログファイルを出力するかの設定
 log_file_path = "c:/Pydoc/oanda/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
 
-accountID, token, line_token = exampleAuth()
+accountID, token, line_token = Auth()
 currency = "USD_JPY"
 gran = "M15"
 

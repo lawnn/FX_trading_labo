@@ -1,4 +1,4 @@
-from auth import exampleAuth
+from auth import Auth
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
 import dateutil.parser
@@ -41,7 +41,7 @@ wait = 0  # ループの待機時間
 long_EMA_term = 350
 short_EMA_term = 14
 
-accountID, token = exampleAuth()
+accountID, token = Auth()
 instrument = "USD_JPY"
 params = {"count": 5000}
 

@@ -1,9 +1,11 @@
+import json
+
+
 def Auth():
     accountID, token, line_token = None, None, None
-    with open("account.txt") as I:
-        accountID = I.read().strip()
-    with open("token.txt") as I:
-        token = I.read().strip()
-    with open("line_token.txt") as I:
-        line_token = I.read().strip()
+    f = open('config/default.json', 'r', encoding="utf-8")
+    config = json.load(f)
+    accountID = config["accountID"]
+    token = config["token"]
+    line_token = config["line_token"]
     return accountID, token, line_token

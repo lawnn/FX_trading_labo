@@ -1,5 +1,6 @@
 from auth import Auth
 import requests
+import tweepy
 from logging import getLogger, StreamHandler, FileHandler, INFO
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
@@ -42,11 +43,12 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
+twitter_config = ""     # Twitter通知をするかどうかの設定
 line_config = ""  # LINE通知をするかどうかの設定
 log_config = ""  # ログファイルを出力するかの設定
 log_file_path = "c:/Pydoc/oanda/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
 
-accountID, token, line_token = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret = Auth()
 currency = "USD_JPY"
 gran = "M15"
 
@@ -568,6 +570,19 @@ def print_log(text):
         headers = {"Authorization": "Bearer " + line_token}
         try:
             requests.post(url, data=data, headers=headers)
+        except requests.exceptions.RequestException as e:
+            if log_config == "ON":
+                logger.info(str(e))
+            else:
+                print(str(e))
+
+    # Twitter通知する場合
+    if twitter_config == "ON":
+        auth = tweepy.OAuthHandler(TW_API_key, TW_API_secret_key)
+        auth.set_access_token(TW_Access_token, TW_Access_token_secret)
+        api = tweepy.API(auth)
+        try:
+            api.update_status(text)
         except requests.exceptions.RequestException as e:
             if log_config == "ON":
                 logger.info(str(e))

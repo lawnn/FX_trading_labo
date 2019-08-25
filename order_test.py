@@ -12,7 +12,7 @@ import time
 import numpy as np
 from pprint import pprint
 
-accountID, token, line_token = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret = Auth()
 currency = "USD_JPY"
 gran = "M15"
 

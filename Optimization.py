@@ -41,7 +41,8 @@ wait = 0  # ループの待機時間
 long_EMA_term = 350
 short_EMA_term = 14
 
-accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
+    discord_webhook_url = Auth()
 instrument = "USD_JPY"
 params = {"count": 5000}
 

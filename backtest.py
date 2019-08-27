@@ -39,7 +39,8 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
-accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
+    discord_webhook_url = Auth()
 instrument = "USD_JPY"
 params = {
     "count": 5000,

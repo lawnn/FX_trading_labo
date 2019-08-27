@@ -87,7 +87,8 @@ def send_api(count, start, minute, instrument):
     return df, last_timestamp
 
 
-accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
+    discord_webhook_url = Auth()
 instrument = 'USD_JPY'
 minute = [15]
 # start = datetime.strptime('2017-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')

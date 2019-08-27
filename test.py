@@ -3,7 +3,8 @@ import oandapyV20.endpoints.instruments as instruments
 from auth import Auth
 from pprint import pprint
 
-accountID, token = Auth()
+accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
+    discord_webhook_url = Auth()
 api = API(access_token=token)
 
 # H2間隔で10データ

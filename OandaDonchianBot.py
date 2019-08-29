@@ -343,6 +343,20 @@ def calculate_EMA(value, before=None):
     return round(EMA, 4)
 
 
+def cross_signal():
+    # Golden cross
+    if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
+            return {"side": "BUY", "price": calculate_EMA(Short_EMA_term)}
+
+    # Dead cross
+    if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
+            return {"side": "SELL", "price": calculate_EMA(Short_EMA_term)}
+
+    return {"side": None, "price": 0}
+
+
 # -------------資金管理の関数--------------
 
 # 注文ロットを計算する関数

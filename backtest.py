@@ -208,12 +208,14 @@ def close_position(data, last_data, flag):
         return flag
 
     flag["position"]["count"] += 1
-    signal = donchian(data, last_data)
+    # signal = donchian(data, last_data)
+    signal = cross_signal()
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            flag["records"]["log"].append(
-                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+            # flag["records"]["log"].append(
+            #     "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+            flag["records"]["log"].append("デッドクロスしました")
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
@@ -245,8 +247,9 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            flag["records"]["log"].append(
-                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+            # flag["records"]["log"].append(
+            #     "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+            flag["records"]["log"].append("ゴールデンクロスしました")
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる

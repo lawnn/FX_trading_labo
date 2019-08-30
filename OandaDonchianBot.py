@@ -107,6 +107,21 @@ def donchian(data, last_data):
     return {"side": None, "price": 0}
 
 
+
+def cross_signal():
+    # Golden cross
+    if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
+            return {"side": "BUY"}
+
+    # Dead cross
+    if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
+            return {"side": "SELL"}
+
+    return {"side": None}
+
+
 # ドンチャンブレイクを判定してエントリー注文を出す関数
 def entry_signal(data, last_data, flag):
     if flag["position"]["exist"] == True:
@@ -341,20 +356,6 @@ def calculate_EMA(value, before=None):
         for i in range(value - 1):
             EMA = (last_data[-1 * value + 1 + i]["close_price"] * 2 / (value + 1)) + (EMA * (value - 1) / (value + 1))
     return round(EMA, 4)
-
-
-def cross_signal():
-    # Golden cross
-    if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
-        if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
-            return {"side": "BUY", "price": calculate_EMA(Short_EMA_term)}
-
-    # Dead cross
-    if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
-        if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
-            return {"side": "SELL", "price": calculate_EMA(Short_EMA_term)}
-
-    return {"side": None, "price": 0}
 
 
 # -------------資金管理の関数--------------

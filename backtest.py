@@ -39,6 +39,9 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
+entry_logic = "donchian"            # Choice donchian or cross_signal
+close_logic = "donchian"            # Choice donchian or cross_signal
+
 accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
     discord_webhook_url = Auth()
 instrument = "USD_JPY"
@@ -126,10 +129,18 @@ def entry_signal(data, last_data, flag):
     if flag["position"]["exist"] == True:
         return flag
 
-    signal = donchian(data, last_data)
+    if entry_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif entry_logic == "cross_signal":
+        signal = cross_signal()
+
     if signal["side"] == "BUY":
-        flag["records"]["log"].append(
-            "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+        if entry_logic == "donchian":
+            flag["records"]["log"].append(
+                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+        elif entry_logic == "cross_signal":
+            flag["records"]["log"].append("ゴールデンクロスが出現しました")
+
         # フィルター条件を確認
         if filter(signal) == False:
             flag["records"]["log"].append("フィルターのエントリー条件を満たさなかったため、エントリーしません\n")
@@ -150,8 +161,11 @@ def entry_signal(data, last_data, flag):
             flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
 
     if signal["side"] == "SELL":
-        flag["records"]["log"].append(
-            "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+        if entry_logic == "donchian":
+            flag["records"]["log"].append(
+                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+        elif entry_logic == "cross_signal":
+            flag["records"]["log"].append("デッドクロスが出現しました")
 
         # フィルター条件を確認
         if filter(signal) == False:
@@ -222,14 +236,20 @@ def close_position(data, last_data, flag):
         return flag
 
     flag["position"]["count"] += 1
-    # signal = donchian(data, last_data)
-    signal = cross_signal()
+
+    if close_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif close_logic == "cross_signal":
+        signal = cross_signal()
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            # flag["records"]["log"].append(
-            #     "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
-            flag["records"]["log"].append("デッドクロスしました")
+            if close_logic == "donchian":
+                flag["records"]["log"].append(
+                    "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+            elif close_logic == "cross_signal":
+                flag["records"]["log"].append("デッドクロスが出現しました")
+
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
@@ -261,9 +281,13 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            # flag["records"]["log"].append(
-            #     "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
-            flag["records"]["log"].append("ゴールデンクロスしました")
+            if close_logic == "donchian":
+                flag["records"]["log"].append(
+                    "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+
+            if close_logic == "cross_signal":
+                flag["records"]["log"].append("ゴールデンクロスが出現しました")
+
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる

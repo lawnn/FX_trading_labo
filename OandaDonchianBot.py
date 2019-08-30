@@ -43,6 +43,9 @@ MA_term = 30  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
 Long_EMA_term = Short_EMA_term * 2
 
+entry_logic = "donchian"            # Choice donchian or cross_signal
+close_logic = "donchian"            # Choice donchian or cross_signal
+
 discord_config = "ON"   # discord通知をするかどうかの設定
 twitter_config = ""     # Twitter通知をするかどうかの設定
 line_config = ""  # LINE通知をするかどうかの設定
@@ -107,7 +110,6 @@ def donchian(data, last_data):
     return {"side": None, "price": 0}
 
 
-
 def cross_signal():
     # Golden cross
     if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
@@ -127,10 +129,18 @@ def entry_signal(data, last_data, flag):
     if flag["position"]["exist"] == True:
         return flag
 
-    signal = donchian(data, last_data)
+    if entry_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif entry_logic == "cross_signal":
+        signal = cross_signal()
+
     if signal["side"] == "BUY":
-        print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(buy_term, signal["price"],
-                                                                 data["forming"][judge_price["BUY"]]))
+        if entry_logic == "donchian":
+            print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(buy_term, signal["price"],
+                                                                    data["forming"][judge_price["BUY"]]))
+        elif entry_logic == "cross_signal":
+            print_log("ゴールデンクロスが出現しました")
+
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
@@ -153,8 +163,12 @@ def entry_signal(data, last_data, flag):
             print_log("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります".format(lot))
 
     if signal["side"] == "SELL":
-        print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(sell_term, signal["price"],
+        if entry_logic == "donchian":
+            print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(sell_term, signal["price"],
                                                                  data["forming"][judge_price["SELL"]]))
+        elif entry_logic == "cross_signal":
+            print_log("デッドクロスが出現しました")
+
         # フィルター条件を確認
         if filter(signal) == False:
             print_log("フィルターのエントリー条件を満たさなかったため、エントリーしません")
@@ -224,12 +238,20 @@ def close_position(data, last_data, flag):
         return flag
 
     flag["position"]["count"] += 1
-    signal = donchian(data, last_data)
+
+    if close_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif close_logic == "cross_signal":
+        signal = cross_signal()
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(sell_term, signal["price"],
-                                                                   data["settled"][judge_price["SELL"]]))
+            if close_logic == "donchian":
+                print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(sell_term, signal["price"],
+                                                                    data["settled"][judge_price["SELL"]]))
+            elif close_logic == "cross_signal":
+                print_log("デッドクロスが出現しました")
+
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる
@@ -263,8 +285,12 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(buy_term, signal["price"],
-                                                                   data["settled"][judge_price["BUY"]]))
+            if close_logic == "donchian":
+                print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(buy_term, signal["price"],
+                                                                    data["settled"][judge_price["BUY"]]))
+            elif close_logic == "cross_signal":
+                print_log("ゴールデンクロスが出現しました")
+
             print_log(str(data["settled"]["close_price"]) + "円あたりで成行注文を出してポジションを決済します")
 
             # 決済の成行注文コードを入れる

@@ -11,11 +11,32 @@ from datetime import datetime
 import time
 import numpy as np
 from pprint import pprint
+import tweepy
 
 accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
     discord_webhook_url = Auth()
 currency = "USD_JPY"
 gran = "M15"
+
+
+discord_config = "ON"
+twitter_config = ""
+line_config = ""  # LINE通知をするかどうかの設定
+log_config = "ON"  # ログファイルを出力するかの設定
+log_file_path = "c:/Pydoc/oanda/OANDA_donchanBOT.log"  # ログを記録するファイル名と出力パス
+
+# -------------ログ機能の設定--------------------
+
+# ログ機能の設定箇所
+if log_config == "ON":
+    logger = getLogger(__name__)
+    handlerSh = StreamHandler()
+    handlerFile = FileHandler(log_file_path)
+    handlerSh.setLevel(INFO)
+    handlerFile.setLevel(INFO)
+    logger.setLevel(INFO)
+    logger.addHandler(handlerSh)
+    logger.addHandler(handlerFile)
 
 
 # OANDA APIに成り行き注文する関数
@@ -161,6 +182,51 @@ def check_position():
     position = positions.OpenPositions(accountID=accountID)
     position = api.request(position)    # API元にrequestを送る(position)
     pprint(position)
+
+
+# ログファイルの出力やLINE通知の関数
+def print_log(text):
+    # LINE通知する場合
+    if line_config == "ON":
+        url = "https://notify-api.line.me/api/notify"
+        data = {"message": str(text)}
+        headers = {"Authorization": "Bearer " + line_token}
+        try:
+            requests.post(url, data=data, headers=headers)
+        except requests.exceptions.RequestException as e:
+            if log_config == "ON":
+                logger.info(str(e))
+            else:
+                print(str(e))
+
+    # Twitter通知する場合
+    if twitter_config == "ON":
+        auth = tweepy.OAuthHandler(TW_API_key, TW_API_secret_key)
+        auth.set_access_token(TW_Access_token, TW_Access_token_secret)
+        api = tweepy.API(auth)
+        try:
+            api.update_status(text)
+        except requests.exceptions.RequestException as e:
+            if log_config == "ON":
+                logger.info(str(e))
+            else:
+                print(str(e))
+
+    if discord_config == "ON":
+        payload = {"content": " " + text + " "}
+        try:
+            requests.post(discord_webhook_url, data=payload)
+        except requests.exceptions.RequestException as e:
+            if log_config == "ON":
+                logger.info(str(e))
+            else:
+                print(str(e))
+
+    # コマンドラインへの出力とファイル保存
+    if log_config == "ON":
+        logger.info(text)
+    else:
+        print(text)
 
 
 data = get_realtime_price()

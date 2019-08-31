@@ -13,33 +13,34 @@ from datetime import datetime
 granularity_list = ['M15']  # テストに使う時間軸
 buy_term_list = [10]  # テストに使う上値ブレイクアウトの期間
 sell_term_list = [10]  # テストに使う下値ブレイクアウトの期間
-volatility_term_list = [4, 6]           # 平均ボラティリティの計算に使う期間
-stop_range_list = [10, 11]  # 何レンジ幅にストップを入れるか
+volatility_term_list = [4]           # 平均ボラティリティの計算に使う期間
+stop_range_list = [11]  # 何レンジ幅にストップを入れるか
 entry_times_list = [4]  # 何回に分けて追加ポジションを取るか
 entry_range_list = [0.5]  # 何レンジごとに追加ポジションを取るか
 filter_VER_list = ["OFF"]  # OFFで無効
 MA_term_list = [100, 200]  # トレンドフィルターに使う移動平均線の期間
-judge_price_list = [
-    {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
-    {"BUY": "high_price", "SELL": "low_price"}      # ブレイクアウト判定に高値・安値を使用
-]
+# judge_price_list = [
+#     {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
+#     {"BUY": "high_price", "SELL": "low_price"}      # ブレイクアウト判定に高値・安値を使用
+# ]
+judge_price_list = [{"BUY": "close_price", "SELL": "close_price"}]
 # ---------------------------------------------------------------------------------------------
 
 TEST_MODE_LOT = "adjustable"  # fixed なら常に10000通貨固定 / adjustable なら可変ロット
 
 trade_risk = 0.05  # 1トレードあたり口座の何％まで損失を許容するか
-leverage = 10  # レバレッジ倍率の設定
+leverage = 25  # レバレッジ倍率の設定
 start_funds = 500000  # シミュレーション時の初期資金
 
 stop_config = "TRAILING"  # ON / OFF / TRAILING の３つが設定可
-stop_AF = 0.02  # 加速係数
-stop_AF_add = 0.02  # 加速係数を増やす度合
-stop_AF_max = 0.2  # 加速係数の上限
+stop_AF = 0.05  # 加速係数
+stop_AF_add = 0.01  # 加速係数を増やす度合
+stop_AF_max = 0.1  # 加速係数の上限
 
 wait = 0  # ループの待機時間
 
-long_EMA_term = 350
-short_EMA_term = 14
+Long_EMA_term = 200
+Short_EMA_term = 7
 
 accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
     discord_webhook_url = Auth()
@@ -259,11 +260,11 @@ def filter(signal):
             return True
 
     if filter_VER == "C":
-        if len(last_data) < (long_EMA_term * 2):
+        if len(last_data) < (Long_EMA_term * 2):
             return True
-        if calculate_EMA(long_EMA_term) < calculate_EMA(short_EMA_term) and signal["side"] == "BUY":
+        if calculate_EMA(Long_EMA_term) < calculate_EMA(Short_EMA_term) and signal["side"] == "BUY":
             return True
-        if calculate_EMA(long_EMA_term) > calculate_EMA(short_EMA_term) and signal["side"] == "SELL":
+        if calculate_EMA(Long_EMA_term) > calculate_EMA(Short_EMA_term) and signal["side"] == "SELL":
             return True
     return False
 

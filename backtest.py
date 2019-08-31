@@ -35,9 +35,9 @@ stop_AF_add = 0.01  # 加速係数を増やす度合
 stop_AF_max = 0.1  # 加速係数の上限
 
 filter_VER = "OFF"  # フィルター設定／OFFで無効
-MA_term = 30  # トレンドフィルターに使う移動平均線の期間
+MA_term = 60  # トレンドフィルターに使う移動平均線の期間
 Short_EMA_term = 7
-Long_EMA_term = Short_EMA_term * 2
+Long_EMA_term = 200
 
 entry_logic = "donchian"            # Choice donchian or cross_signal
 close_logic = "donchian"            # Choice donchian or cross_signal
@@ -330,9 +330,9 @@ def filter(signal):
     if filter_VER == "A":
         if len(last_data) < MA_term:
             return True
-        if data.get("close_price") > calculate_MA(MA_term) and signal["side"] == "BUY":
+        if data["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
             return True
-        if data.get("close_price") < calculate_MA(MA_term) and signal["side"] == "SELL":
+        if data["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
             return True
 
     if filter_VER == "B":

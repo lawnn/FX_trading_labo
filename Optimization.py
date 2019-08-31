@@ -39,8 +39,11 @@ stop_AF_max = 0.1  # 加速係数の上限
 
 wait = 0  # ループの待機時間
 
-Long_EMA_term = 200
 Short_EMA_term = 7
+Long_EMA_term = 200
+
+entry_logic = "donchian"            # Choice donchian or cross_signal
+close_logic = "donchian"            # Choice donchian or cross_signal
 
 accountID, token, line_token, TW_API_key, TW_API_secret_key, TW_Access_token, TW_Access_token_secret, \
     discord_webhook_url = Auth()
@@ -63,16 +66,36 @@ def donchian(data, last_data):
     return {"side": None, "price": 0}
 
 
+def cross_signal():
+    # Golden cross
+    if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
+            return {"side": "BUY"}
+
+    # Dead cross
+    if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
+        if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
+            return {"side": "SELL"}
+
+    return {"side": None}
+
+
 # エントリー注文を出す関数
 def entry_signal(data, last_data, flag):
     if flag["position"]["exist"] == True:
         return flag
 
-    signal = donchian(data, last_data)
+    if entry_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif entry_logic == "cross_signal":
+        signal = cross_signal()
 
     if signal["side"] == "BUY":
-        flag["records"]["log"].append(
-            "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+        if entry_logic == "donchian":
+            flag["records"]["log"].append(
+                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+        elif entry_logic == "cross_signal":
+            flag["records"]["log"].append("ゴールデンクロスが出現しました")
 
         # フィルター条件を確認
         if filter(signal) == False:
@@ -80,7 +103,7 @@ def entry_signal(data, last_data, flag):
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
+        if lot >= 1:
             flag["records"]["log"].append("{0}円で{1}通貨の買い注文を出します\n".format(data["close_price"], lot))
 
             # ここに買い注文のコードを入れる
@@ -94,8 +117,11 @@ def entry_signal(data, last_data, flag):
             flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
 
     if signal["side"] == "SELL":
-        flag["records"]["log"].append(
-            "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+        if entry_logic == "donchian":
+            flag["records"]["log"].append(
+                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+        elif entry_logic == "cross_signal":
+            flag["records"]["log"].append("デッドクロスが出現しました")
 
         # フィルター条件を確認
         if filter(signal) == False:
@@ -103,7 +129,7 @@ def entry_signal(data, last_data, flag):
             return flag
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
-        if lot > 0.01:
+        if lot >= 1:
             flag["records"]["log"].append("{0}円で{1}通貨の売り注文を出します\n".format(data["close_price"], lot))
 
             # ここに売り注文のコードを入れる
@@ -166,12 +192,20 @@ def close_position(data, last_data, flag):
         return flag
 
     flag["position"]["count"] += 1
-    signal = donchian(data, last_data)
+
+    if close_logic == "donchian":
+        signal = donchian(data, last_data)
+    elif close_logic == "cross_signal":
+        signal = cross_signal()
 
     if flag["position"]["side"] == "BUY":
         if signal["side"] == "SELL":
-            flag["records"]["log"].append(
-                "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+            if close_logic == "donchian":
+                flag["records"]["log"].append(
+                    "過去{0}足の最安値{1}円を、直近の価格が{2}円でブレイクしました\n".format(sell_term, signal["price"], data[judge_price["SELL"]]))
+            elif close_logic == "cross_signal":
+                flag["records"]["log"].append("デッドクロスが出現しました")
+
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
@@ -189,7 +223,7 @@ def close_position(data, last_data, flag):
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot >= 0.01:
+            if lot >= 1:
                 flag["records"]["log"].append("\n{0}円で{1}通貨の売りの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに売り注文のコードを入れる
@@ -202,8 +236,13 @@ def close_position(data, last_data, flag):
 
     if flag["position"]["side"] == "SELL":
         if signal["side"] == "BUY":
-            flag["records"]["log"].append(
-                "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+            if close_logic == "donchian":
+                flag["records"]["log"].append(
+                    "過去{0}足の最高値{1}円を、直近の価格が{2}円でブレイクしました\n".format(buy_term, signal["price"], data[judge_price["BUY"]]))
+
+            if close_logic == "cross_signal":
+                flag["records"]["log"].append("ゴールデンクロスが出現しました")
+
             flag["records"]["log"].append(str(data["close_price"]) + "円あたりで成行注文を出してポジションを決済します\n")
 
             # 決済の成行注文コードを入れる
@@ -221,7 +260,7 @@ def close_position(data, last_data, flag):
                 return flag
 
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot > 0.01:
+            if lot >= 1:
                 flag["records"]["log"].append("\n{0}円で{1}通貨の買いの注文を入れてドテンします\n".format(data["close_price"], lot))
 
                 # ここに買い注文のコードを入れる
@@ -235,7 +274,9 @@ def close_position(data, last_data, flag):
     return flag
 
 
-# エントリーフィルターの関数
+# -------------トレンドフィルターの関数--------------
+
+# トレンドフィルターの関数
 def filter(signal):
     if filter_VER == "OFF":
         return True
@@ -244,9 +285,9 @@ def filter(signal):
         try:
             if len(last_data) < MA_term:
                 return True
-            if data["close_price"] > last_data[MA_term]["close_price"] and signal["side"] == "BUY":
+            if data["close_price"] > calculate_MA(MA_term) and signal["side"] == "BUY":
                 return True
-            if data["close_price"] < last_data[MA_term]["close_price"] and signal["side"] == "SELL":
+            if data["close_price"] < calculate_MA(MA_term) and signal["side"] == "SELL":
                 return True
         except IndexError as e:
             print(str(e))
@@ -285,7 +326,7 @@ def calculate_EMA(value, before=None):
         EMA = (last_data[-1 * value + before]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
         for i in range(value - 1):
             EMA = (last_data[-1 * value + before + 1 + i]["close_price"] * 2 / (value + 1)) + (
-                        EMA * (value - 1) / (value + 1))
+                    EMA * (value - 1) / (value + 1))
     else:
         MA = sum(i["close_price"] for i in last_data[-2 * value: -1 * value]) / value
         EMA = (last_data[-1 * value]["close_price"] * 2 / (value + 1)) + (MA * (value - 1) / (value + 1))
@@ -295,7 +336,6 @@ def calculate_EMA(value, before=None):
 
 
 # -------------資金管理の関数--------------
-
 # 注文ロットを計算する関数
 def calculate_lot(last_data, data, flag):
     # 固定ロットでのテスト時
@@ -388,7 +428,7 @@ def add_position(data, flag):
 
             # 注文サイズを計算
             lot, stop, flag = calculate_lot(last_data, data, flag)
-            if lot < 0.01:
+            if lot <= 1:
                 flag["records"]["log"].append("注文可能枚数{}が、最低注文単位に満たなかったので注文を見送ります\n".format(lot))
                 flag["add-position"]["count"] += 1
                 return flag
@@ -412,7 +452,7 @@ def add_position(data, flag):
             flag["position"]["stop"] = stop
             flag["position"]["price"] = float(round(
                 (flag["position"]["price"] * flag["position"]["lot"] + entry_price * lot) / (
-                            flag["position"]["lot"] + lot), 3))
+                        flag["position"]["lot"] + lot), 3))
             flag["position"]["lot"] = np.round((flag["position"]["lot"] + lot) * 100) / 100
 
             if flag["position"]["side"] == "BUY":
@@ -448,7 +488,8 @@ def trail_stop(data, flag):
         flag["position"]["stop-EP"] = moved_range
 
     # 加速係数に応じて損切りラインを動かす
-    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"]["stop-AF"]
+    flag["position"]["stop"] = flag["position"]["stop"] - (moved_range + flag["position"]["stop"]) * flag["position"][
+        "stop-AF"]
 
     # 加速係数を更新する
     flag["position"]["stop-AF"] = flag["position"]["stop-AF"] + stop_AF_add
@@ -532,7 +573,6 @@ def records(flag, data, close_price, close_type=None):
     # 取引手数料等の計算
     entry_price = int(round(flag["position"]["price"] * flag["position"]["lot"]))
     exit_price = int(round(close_price * flag["position"]["lot"]))
-
 
     # 手仕舞った日時と保有期間を記録
     flag["records"]["date"].append(data["close_time_dt"])

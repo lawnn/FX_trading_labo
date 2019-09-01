@@ -18,7 +18,9 @@ stop_range_list = [11]  # 何レンジ幅にストップを入れるか
 entry_times_list = [4]  # 何回に分けて追加ポジションを取るか
 entry_range_list = [0.5]  # 何レンジごとに追加ポジションを取るか
 filter_VER_list = ["OFF"]  # OFFで無効
-MA_term_list = [100, 200]  # トレンドフィルターに使う移動平均線の期間
+MA_term_list = [200]  # トレンドフィルターに使う移動平均線の期間
+Short_EMA_term_list = [7, 14]
+Long_EMA_term_list = [60, 100, 150, 200, 350]
 # judge_price_list = [
 #     {"BUY": "close_price", "SELL": "close_price"},  # ブレイクアウト判定に終値を使用
 #     {"BUY": "high_price", "SELL": "low_price"}      # ブレイクアウト判定に高値・安値を使用
@@ -38,9 +40,6 @@ stop_AF_add = 0.01  # 加速係数を増やす度合
 stop_AF_max = 0.1  # 加速係数の上限
 
 wait = 0  # ループの待機時間
-
-Short_EMA_term = 7
-Long_EMA_term = 200
 
 entry_logic = "donchian"            # Choice donchian or cross_signal
 close_logic = "donchian"            # Choice donchian or cross_signal
@@ -67,16 +66,20 @@ def donchian(data, last_data):
 
 
 def cross_signal():
-    # Golden cross
-    if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
-        if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
-            return {"side": "BUY"}
-
-    # Dead cross
-    if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
-        if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
-            return {"side": "SELL"}
-
+    try:
+        # Golden cross
+        if calculate_EMA(Short_EMA_term, -1) < calculate_EMA(Long_EMA_term, -1):
+            if calculate_EMA(Short_EMA_term) >= calculate_EMA(Long_EMA_term):
+                return {"side": "BUY"}
+    except IndexError:
+        pass
+    try:
+        # Dead cross
+        if calculate_EMA(Short_EMA_term, -1) > calculate_EMA(Long_EMA_term, -1):
+            if calculate_EMA(Short_EMA_term) <= calculate_EMA(Long_EMA_term):
+                return {"side": "SELL"}
+    except IndexError:
+        pass
     return {"side": None}
 
 
@@ -806,6 +809,8 @@ param_entry_range = []
 param_stop_range = []
 param_filter_VER = []
 param_MA_term = []
+param_Long_EMA_term = []
+param_Short_EMA_term = []
 param_judge_price = []
 
 result_count = []
@@ -815,7 +820,7 @@ result_drawdown = []
 result_profitFactor = []
 result_gross = []
 # 総当たりのためのfor文の準備
-combinations = [(granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,  stop_range, filter_VER, judge_price)
+combinations = [(granularity, buy_term, sell_term, volatility_term, entry_times, entry_range, stop_range, filter_VER, Long_EMA_term, Short_EMA_term, judge_price)
                 for granularity in granularity_list
                 for buy_term in buy_term_list
                 for sell_term in sell_term_list
@@ -824,9 +829,11 @@ combinations = [(granularity, buy_term, sell_term, volatility_term, entry_times,
                 for entry_range in entry_range_list
                 for stop_range in stop_range_list
                 for filter_VER in filter_VER_list
+                for Long_EMA_term in Long_EMA_term_list
+                for Short_EMA_term in Short_EMA_term_list
                 for judge_price in judge_price_list]
 
-for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,   stop_range, filter_VER, judge_price in combinations:
+for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range, stop_range, filter_VER,  Long_EMA_term, Short_EMA_term, judge_price in combinations:
     if filter_VER != "OFF":
         for MA_term in MA_term_list:
 
@@ -944,6 +951,8 @@ for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,
             param_entry_range.append(entry_range)
             param_filter_VER .append(filter_VER)
             param_MA_term.append(MA_term)
+            param_Long_EMA_term.append(Long_EMA_term)
+            param_Short_EMA_term.append(Short_EMA_term)
             param_stop_range.append(stop_range)
             param_granularity.append(granularity)
             if judge_price["BUY"] == "high_price":
@@ -1073,6 +1082,8 @@ for granularity, buy_term, sell_term, volatility_term, entry_times, entry_range,
         param_entry_times.append(entry_times)
         param_entry_range.append(entry_range)
         param_MA_term.append(MA_term)
+        param_Long_EMA_term.append(Long_EMA_term)
+        param_Short_EMA_term.append(Short_EMA_term)
         param_filter_VER.append(filter_VER)
         param_stop_range.append(stop_range)
         param_granularity.append(granularity)
@@ -1100,6 +1111,8 @@ df = pd.DataFrame({
     "stop_range": param_stop_range,
     "filter_VER": param_filter_VER,
     "MA期間": param_MA_term,
+    "LEMA": Long_EMA_term,
+    "SEMA": Short_EMA_term,
     "判定基準": param_judge_price,
     "トレード回数": result_count,
     "勝率": result_winRate,
@@ -1110,7 +1123,7 @@ df = pd.DataFrame({
 })
 
 # 列の順番を固定する
-df = df[["時間軸", "買い期間", "売り期間", "ATR", "entry_time", "entry_range",  "stop_range", "filter_VER", "MA期間", "判定基準", "トレード回数", "勝率", "平均リターン", "ドローダウン", "PF", "最終損益"]]
+df = df[["時間軸", "買い期間", "売り期間", "ATR", "entry_time", "entry_range",  "stop_range", "filter_VER", "MA期間", "LEMA", "SEMA", "判定基準", "トレード回数", "勝率", "平均リターン", "ドローダウン", "PF", "最終損益"]]
 
 # トレード回数が100に満たない記録は消す
 df.drop(df[df["トレード回数"] < 100].index, inplace=True)

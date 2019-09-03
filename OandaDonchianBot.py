@@ -676,10 +676,10 @@ def oanda_market(side, lot):
         try:
             # 注文実行
             api.request(order)                  # API元にrequestを送る(order)
-            print_log("チケットID : " + position['lastTransactionID'] + "\n注文がすべて約定するのを待っています")
             time.sleep(20)
             position = api.request(position)    # API元にrequestを送る(position)
             average_price = position['positions'][0]['long']['averagePrice']
+            print_log("チケットID : " + position['lastTransactionID'])
             print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
             return float(average_price)
 

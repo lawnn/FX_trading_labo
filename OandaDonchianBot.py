@@ -666,41 +666,32 @@ def oanda_market(side, lot):
         "positionFill": "DEFAULT"
     }}
 
-    # API取得
-    api = API(access_token=token)
-    order = orders.OrderCreate(accountID, data=order)
-    position = positions.OpenPositions(accountID=accountID)
-
     while True:
-        # 注文実行
-        api.request(order)  # API元にrequestを送る(order)
-        position = api.request(position)  # API元にrequestを送る(position)
-        time.sleep(20)
+        try:
+            # API取得
+            api = API(access_token=token)
+            order = orders.OrderCreate(accountID, data=order)
+            position = positions.OpenPositions(accountID=accountID)
+            # 注文実行
+            api.request(order)  # API元にrequestを送る(order)
+            position = api.request(position)  # API元にrequestを送る(position)
+            time.sleep(20)
 
-        # 執行状況を確認
-        if units > 0:
-            while True:
-                try:
-                    average_price = position['positions'][0]['long']['averagePrice']
-                    print_log("チケットID : " + position['lastTransactionID'] + "ロングポジションです")
-                    print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
-                    return float(average_price)
+            if units > 0:
+                average_price = position['positions'][0]['long']['averagePrice']
+                print_log("チケットID : " + position['lastTransactionID'] + "ロングポジションです")
+                print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
+                return float(average_price)
 
-                except V20Error as e:
-                    print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
-                    time.sleep(20)
+            elif units < 0:
+                average_price = position['positions'][0]['short']['averagePrice']
+                print_log("チケットID : " + position['lastTransactionID'] + "ショートポジションです")
+                print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
+                return float(average_price)
 
-        elif units < 0:
-            while True:
-                try:
-                    average_price = position['positions'][0]['short']['averagePrice']
-                    print_log("チケットID : " + position['lastTransactionID'] + "ショートポジションです")
-                    print_log("\nすべての成行注文が執行されました\n執行価格は平均 {}円です".format(average_price))
-                    return float(average_price)
-
-                except V20Error as e:
-                    print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
-                    time.sleep(20)
+        except V20Error as e:
+            print_log("\nOANDAのAPIで問題発生\n" + str(e) + "\n20秒待機してやり直します")
+            time.sleep(20)
 
 
 # 注文決済する関数

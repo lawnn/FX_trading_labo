@@ -814,8 +814,8 @@ def backtest(flag):
 # ------------ここからメイン処理の記述--------------
 # 価格チャートを取得
 pd.plotting.register_matplotlib_converters()
-# price = get_price()
-price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2016.1.1' + '.csv')
+price = get_price()
+# price = get_price_from_file('csv/' + instrument + '_' + params['granularity'] + '_' + '2016.1.1' + '.csv')
 
 last_data = []
 need_term = max(buy_term, sell_term, volatility_term, MA_term, Long_EMA_term * 2)

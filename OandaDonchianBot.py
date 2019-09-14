@@ -100,11 +100,11 @@ flag = {
 # ドンチャンブレイクを判定する関数
 def donchian(data, last_data):
     highest = max(i["high_price"] for i in last_data[(-1 * buy_term):])
-    if data["forming"][judge_price["BUY"]] > highest:
+    if data["settled"][judge_price["BUY"]] > highest:
         return {"side": "BUY", "price": highest}
 
     lowest = min(i["low_price"] for i in last_data[(-1 * sell_term):])
-    if data["forming"][judge_price["SELL"]] < lowest:
+    if data["settled"][judge_price["SELL"]] < lowest:
         return {"side": "SELL", "price": lowest}
 
     return {"side": None, "price": 0}
@@ -137,7 +137,7 @@ def entry_signal(data, last_data, flag):
     if signal["side"] == "BUY":
         if entry_logic == "donchian":
             print_log("過去{0}足の最高値{1}円を、直近の価格が{2}円でロング方向へブレイクしました".format(buy_term, signal["price"],
-                                                                    data["forming"][judge_price["BUY"]]))
+                                                                    data["settled"][judge_price["BUY"]]))
         elif entry_logic == "cross_signal":
             print_log("ゴールデンクロスが出現しました")
 
@@ -149,7 +149,7 @@ def entry_signal(data, last_data, flag):
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot >= 1:
-            print_log("{0}円あたりに{1}通貨で買いの成行注文を出します".format(data["forming"]["close_price"], lot))
+            print_log("{0}円あたりに{1}通貨で買いの成行注文を出します".format(data["settled"]["close_price"], lot))
 
             # ここに買い注文のコードを入れる
             price = oanda_market("BUY", lot)
@@ -165,7 +165,7 @@ def entry_signal(data, last_data, flag):
     if signal["side"] == "SELL":
         if entry_logic == "donchian":
             print_log("過去{0}足の最安値{1}円を、直近の価格が{2}円でショート方向へブレイクしました".format(sell_term, signal["price"],
-                                                                 data["forming"][judge_price["SELL"]]))
+                                                                 data["settled"][judge_price["SELL"]]))
         elif entry_logic == "cross_signal":
             print_log("デッドクロスが出現しました")
 
@@ -177,7 +177,7 @@ def entry_signal(data, last_data, flag):
 
         lot, stop, flag = calculate_lot(last_data, data, flag)
         if lot >= 1:
-            print_log("{0}円あたりに{1}通貨の売りの成行注文を出します".format(data["forming"]["close_price"], lot))
+            print_log("{0}円あたりに{1}通貨の売りの成行注文を出します".format(data["settled"]["close_price"], lot))
 
             # ここに売り注文のコードを入れる
             price = oanda_market("SELL", lot)
